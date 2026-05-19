@@ -1,0 +1,1 @@
+# Intermediate-Representation-IR-Framework-for-SIEM-Rule-Generation
