@@ -69,7 +69,7 @@ class SecurityIR(BaseModel):
 
     metadata: IRMetadata
     detection_logic: DetectionLogic
-    entity_mapping: EntityMapping
+    entity_mapping: EntityMapping = Field(default_factory=EntityMapping)
     temporal_logic: Optional[TemporalLogic] = None
     mitre_mapping: List[MITREMapping] = Field(default_factory=list)
     output_config: OutputConfig = Field(default_factory=OutputConfig)
