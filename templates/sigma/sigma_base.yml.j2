@@ -1,0 +1,27 @@
+title: {{ metadata.rule_name }}
+description: {{ metadata.description }}
+status: experimental
+author: {{ metadata.author | default("IR Framework") }}
+date: {{ created_at }}
+logsource:
+  category: {{ table_name }}
+detection:
+  selection:
+{% for filter in filters %}
+    {{ filter.field }}:
+{% if filter.operator == 'equals' %}      - '{{ filter.value }}'
+{% elif filter.operator == 'contains' %}      - '*{{ filter.value }}*'
+{% elif filter.operator == 'starts_with' %}      - '{{ filter.value }}*'
+{% elif filter.operator == 'regex' %}      - '/{{ filter.value }}/'
+{% else %}      - '{{ filter.value }}' # fallback
+{% endif %}
+{% endfor %}
+  condition: selection
+{% if aggregation %}
+  # Note: Sigma handles aggregations using pipelines in modern backends
+{% endif %}
+level: {{ metadata.severity }}
+tags:
+{% for tag in metadata.tags %}
+  - {{ tag }}
+{% endfor %}

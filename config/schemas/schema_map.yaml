@@ -1,0 +1,57 @@
+authentication_success:
+  sigma:
+    category: authentication
+    fields:
+      src_ip: SourceIp
+      user: User
+  kql:
+    table: SigninLogs
+    fields:
+      src_ip: IPAddress
+      user: UserPrincipalName
+      action: ResultType
+  spl:
+    index: auth
+    fields:
+      src_ip: src
+      user: user
+      action: action
+
+authentication_failure:
+  sigma:
+    category: authentication
+    fields:
+      src_ip: SourceIp
+      user: User
+  kql:
+    table: SigninLogs
+    fields:
+      src_ip: IPAddress
+      user: UserPrincipalName
+      action: ResultType
+  spl:
+    index: auth
+    fields:
+      src_ip: src
+      user: user
+      action: action
+
+process_creation:
+  sigma:
+    category: process_creation
+    fields:
+      process_name: Image
+      command_line: CommandLine
+      parent_process: ParentImage
+  kql:
+    table: DeviceProcessEvents
+    fields:
+      process_name: FileName
+      command_line: ProcessCommandLine
+      parent_process: InitiatingProcessFileName
+  spl:
+    index: endpoint
+    fields:
+      process_name: process_name
+      command_line: process
+      parent_process: parent_process_name

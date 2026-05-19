@@ -114,7 +114,7 @@ The core innovation is a **schema-aware Intermediate Representation (IR)** layer
 
 A **multi-agent architecture** orchestrated via LangGraph decomposes the complex reasoning task into specialized, modular agents: threat intelligence extraction, entity recognition, metadata generation, MITRE mapping, IR construction, validation, and autonomous repair. This separation of concerns eliminates the failure mode of single-prompt LLM generation, where one model must simultaneously reason about cybersecurity semantics, query syntax, schema mappings, and temporal logic.
 
-A **closed-loop validation and repair pipeline** executes generated rules against benchmark telemetry datasets (CTI-REALM, HDFS logs, synthetic enterprise logs), measures precision/recall/false-positive rates, and autonomously repairs failing rules through iterative refinement — all before human review.
+A **closed-loop validation and repair pipeline** executes generated rules against benchmark telemetry datasets (SigmaHQ, HDFS logs, synthetic enterprise logs), measures precision/recall/false-positive rates, and autonomously repairs failing rules through iterative refinement — all before human review.
 
 ### What This Project IS
 
@@ -226,7 +226,7 @@ The Security IR captures **what to detect** (attack behavior, entities, threshol
 | OCSF and ASIM schema normalization | Proprietary vendor schema reverse-engineering |
 | Telemetry-grounded validation | Production SOC integration |
 | Autonomous repair with max-retry bounds | Fully unsupervised operation without human review |
-| Benchmark evaluation (CTI-REALM, SigmaHQ, HDFS) | Real-world SOC deployment metrics |
+| Benchmark evaluation (SigmaHQ, SigmaHQ, HDFS) | Real-world SOC deployment metrics |
 
 ---
 
@@ -588,7 +588,7 @@ LAYER 3: Executable Rule (Platform-Specific Code)
   SigninLogs
   | where TimeGenerated > ago(5m)
   | where ResultType == "50126"
-  | summarize DistinctUsers = dcount(UserPrincipalName) by IPAddress
+  | summarize DistinctUsers = distinct_count(UserPrincipalName) by IPAddress
   | where DistinctUsers > 20
 ```
 
@@ -743,7 +743,7 @@ SecurityEvent
 | Cybersecurity NLP | CyBERT, SecBERT, CyNER | Focus on NER/classification, not end-to-end rule generation |
 | Sigma rule analysis | SigmaHQ community research | Focus on rule management, not automated generation |
 | Multi-agent AI systems | AutoGen, CrewAI, LangGraph | General frameworks, not applied to detection engineering |
-| CTI operationalization | CTI-REALM benchmark (Microsoft) | Provides evaluation methodology but not a generation framework |
+| CTI operationalization | SigmaHQ benchmark (Microsoft) | Provides evaluation methodology but not a generation framework |
 | Intermediate representations | Compiler theory (LLVM IR, JVM bytecode) | Not applied to cybersecurity detection logic |
 
 ### 9.3 Research Gap Summary
@@ -755,7 +755,7 @@ SecurityEvent
 3. ✗ Schema-aware generation via OCSF/ASIM normalization
 4. ✗ Cross-platform rule generation (Sigma + KQL + SPL) from a single IR
 5. ✗ Closed-loop telemetry validation with autonomous repair
-6. ✗ Empirical evaluation against benchmark datasets (CTI-REALM, SigmaHQ, HDFS)
+6. ✗ Empirical evaluation against benchmark datasets (SigmaHQ, SigmaHQ, HDFS)
 
 **This project fills this exact gap** by unifying all six capabilities into a single, coherent framework.
 
@@ -791,7 +791,7 @@ SecurityEvent
 | **RQ2** | Does multi-agent decomposition improve extraction accuracy for cybersecurity entities, behaviors, and MITRE mappings? |
 | **RQ3** | Can schema-aware generation via OCSF/ASIM normalization achieve >90% field mapping accuracy across heterogeneous SIEM platforms? |
 | **RQ4** | Does closed-loop validation with autonomous repair improve the operational effectiveness (precision/recall) of generated rules? |
-| **RQ5** | What is the comparative performance of the proposed framework against direct LLM baselines on standardized benchmarks (CTI-REALM, SigmaHQ)? |
+| **RQ5** | What is the comparative performance of the proposed framework against direct LLM baselines on standardized benchmarks (SigmaHQ, SigmaHQ)? |
 
 ### 10.4 Hypotheses
 
@@ -2343,7 +2343,7 @@ Using ASIM, a detection rule becomes **source-agnostic**:
 // ASIM-based brute force detection — works for ANY log source with Authentication parser
 _Im_Authentication(starttime=ago(10m), eventresult='Failure')
 | summarize FailedAttempts = count(),
-            TargetAccounts = dcount(TargetUsername)
+            TargetAccounts = distinct_count(TargetUsername)
   by SrcIpAddr, bin(TimeGenerated, 5m)
 | where FailedAttempts > 5
 | extend AlertSeverity = "High"
@@ -2905,7 +2905,7 @@ falsepositives:
 | `let` | Define variable/subquery | Named intermediate datasets |
 | `bin()` | Time bucketing | Align events to time windows |
 | `ago()` | Relative time | `ago(10m)` = 10 minutes ago |
-| `dcount()` | Distinct count | Count unique values |
+| `distinct_count()` | Distinct count | Count unique values |
 | `make_set()` | Collect distinct values | Aggregate related entities |
 | `arg_max()` | Latest record per group | Most recent event per user |
 
@@ -2967,7 +2967,7 @@ SecurityEvent
 // Same brute force rule — works for Windows, Azure AD, Okta, AWS Cognito
 _Im_Authentication(starttime=ago(10m), eventresult='Failure')
 | summarize FailedAttempts = count(),
-            TargetAccounts = dcount(TargetUsername)
+            TargetAccounts = distinct_count(TargetUsername)
   by SrcIpAddr, bin(TimeGenerated, 5m)
 | where FailedAttempts > 5
 | extend Severity = "High", MitreTechnique = "T1110"
@@ -3110,7 +3110,7 @@ class SPLGenerator:
         # Aggregation
         if agg:
             group_field = fields.get(agg.group_by[0], agg.group_by[0]) if agg.group_by else ""
-            fn_map = {"count": "count", "sum": "sum", "dcount": "dc"}
+            fn_map = {"count": "count", "sum": "sum", "distinct_count": "dc"}
             fn = fn_map.get(agg.function, "count")
             target = agg.target_field if hasattr(agg, "target_field") and agg.target_field else ""
             stat_expr = f"{fn}({target}) as Result" if target else f"{fn} as Result"
@@ -3199,7 +3199,7 @@ Generated Rule String (ready for validation)
 | Multiple filters (OR) | Two named selections with `sel1 or sel2` condition | `\| where cond1 or cond2` | `(term1 OR term2)` in search |
 | CIDR exclusion | `field\|cidr: 'x.x.x.x/y'` with `not filter` | `\| where field !startswith "prefix"` | `\| where NOT cidrmatch("cidr", field)` |
 | Regex filter | `field\|re: 'pattern'` | `\| where field matches regex "pattern"` | `\| where match(field, "pattern")` |
-| Distinct count threshold | `count(field) > N` in condition | `summarize dcount(field) \| where ...` | `dc(field) as Result \| where Result > N` |
+| Distinct count threshold | `count(field) > N` in condition | `summarize distinct_count(field) \| where ...` | `dc(field) as Result \| where Result > N` |
 
 ### 27.4 Post-Processing and Quality Checks
 
@@ -3532,125 +3532,44 @@ Beyond field names, semantic validation checks that the detection logic is inter
 
 ---
 
-## 31. Stage 3 — Telemetry Execution Validation
+## 31. Stage 3 — Telemetry Execution Validation (Expanded)
 
-### 31.1 Telemetry Datasets
+The final and most critical validation stage executes the generated rule against synthetic or captured telemetry in a local sandbox. This empirical validation proves that the rule fires correctly (True Positive) without triggering on normal baseline activity (False Positive).
 
-The validation engine uses two categories of telemetry:
+### 31.1 Synthetic Telemetry Generator Engine
 
-**Category A — Benchmark Datasets (Evaluation)**
+Generating realistic logs is a significant engineering challenge. The Telemetry Generator Engine uses a constraint-based approach to simulate logs that conform to the OCSF schema.
 
-| Dataset | Source | Size | Used For |
-|---|---|---|---|
-| **CTI-REALM-25** | Microsoft Research 2025 | 25 threat reports → labeled rules | Primary benchmark for extraction accuracy |
-| **CTI-REALM-50** | Microsoft Research 2025 | 50 threat reports → labeled rules | Extended benchmark |
-| **SigmaHQ Rules** | SigmaHQ community | 3000+ curated rules | Reference rules for CodeBLEU scoring |
-| **HDFS Anomaly v1** | Loghub / UIUC | 11.2M log lines, labeled anomalies | Telemetry execution baseline |
-| **HDFS Anomaly v2** | Loghub / UIUC | Updated version with more labels | Extended telemetry validation |
+**Architecture of the Generator:**
+1. **IR parsing:** The engine reads the `DetectionLogic` and `EntityMapping` from the IR.
+2. **Constraint Extraction:** It extracts filters (e.g., `user == 'admin'`), timeframes, and event types (e.g., `authentication_failure`).
+3. **Faker Integration:** Using Python's `Faker` library augmented with cybersecurity-specific dictionaries, it generates mock IPs, process names, and user accounts.
+4. **Targeted Generation:** 
+   - *True Positive Generation:* Generates logs that explicitly satisfy all constraints within the required timeframe to ensure the rule fires.
+   - *False Positive Generation:* Generates baseline "benign" logs (e.g., successful logins, normal background processes) mixed with near-miss conditions (e.g., 4 failed logins when the threshold is 5) to ensure the rule is not overly noisy.
 
-**Category B — Synthetic Datasets (Generation)**
+### 31.2 Execution Sandbox
 
-Synthetic log datasets are procedurally generated to test specific detection scenarios:
+To avoid the massive cost and latency of running rules against cloud SIEMs (Sentinel/Splunk) during every repair loop, the framework uses a local execution sandbox:
 
-```python
-class SyntheticLogGenerator:
-    def generate_brute_force_scenario(self, config: dict) -> pd.DataFrame:
-        """Generate synthetic authentication logs with embedded brute force attack."""
-        benign_events = self._generate_normal_auth(
-            num_events=config["benign_count"],    # e.g., 10000 benign logins
-            success_rate=0.95                      # 95% success rate for benign
-        )
-        attack_events = self._generate_attack_auth(
-            num_events=config["attack_count"],     # e.g., 50 failed logins
-            source_ip="192.0.2.100",               # attacker IP
-            target_users=config["target_users"],   # list of targeted users
-            within_minutes=config["window"]        # time window
-        )
-        all_events = pd.concat([benign_events, attack_events])
-        all_events["is_attack"] = all_events["source_ip"] == "192.0.2.100"
-        return all_events.sort_values("timestamp").reset_index(drop=True)
+- **Local EQL Engine:** For rules that can be mapped to Event Query Language (EQL), a local Elastic node executes the query.
+- **Dataframe Evaluator:** For custom query logic, the pipeline translates the IR into Pandas/Polars dataframe operations and evaluates the generated logs locally.
+- **Dockerized Splunk Lite:** For explicit SPL validation, a lightweight, ephemeral Splunk container is spun up via the `subprocess` module, ingests the JSON logs, runs the query via API, and returns the result.
+
+### 31.3 The Execution Feedback Loop
+
+When the sandbox runs a query, it produces structured feedback for the Repair Agent:
+```json
+{
+  "execution_status": "success",
+  "true_positive_fired": false,
+  "false_positives_detected": 12,
+  "error_message": null,
+  "recommendation": "The rule syntax is valid, but the aggregation threshold was not met because the sliding window is too narrow. Consider widening the timeframe."
+}
 ```
+This structured feedback allows the Repair Agent to explicitly understand *why* a rule failed, far beyond simple syntax errors.
 
-### 31.2 Rule Execution Engine
-
-The execution engine adapts rule execution to the available telemetry format:
-
-```python
-class TelemetryValidator:
-    def __init__(self, telemetry_df: pd.DataFrame, platform: str):
-        self.df = telemetry_df
-        self.platform = platform
-
-    def execute_sigma_rule(self, sigma_yaml: str) -> ExecutionResult:
-        """Convert Sigma → pandas query and execute against telemetry DataFrame."""
-        from sigma.rule import SigmaRule
-        from sigma.backends.pandas import PandasBackend
-
-        rule = SigmaRule.from_yaml(sigma_yaml)
-        backend = PandasBackend()
-        pandas_query = backend.convert_rule(rule)
-
-        try:
-            import time
-            start = time.time()
-            matched = self.df.query(pandas_query)
-            elapsed_ms = (time.time() - start) * 1000
-
-            return ExecutionResult(
-                matched_events=matched,
-                execution_time_ms=elapsed_ms,
-                error=None
-            )
-        except Exception as e:
-            return ExecutionResult(matched_events=None, execution_time_ms=0, error=str(e))
-
-    def compute_metrics(self, matched: pd.DataFrame) -> DetectionMetrics:
-        """Compute precision, recall, FPR given ground truth labels."""
-        if "is_attack" not in self.df.columns:
-            return DetectionMetrics()  # Cannot compute without ground truth
-
-        all_attacks = self.df[self.df["is_attack"] == True]
-        all_benign  = self.df[self.df["is_attack"] == False]
-
-        if matched is None or matched.empty:
-            return DetectionMetrics(
-                true_positives=0, false_positives=0,
-                true_negatives=len(all_benign), false_negatives=len(all_attacks),
-                precision=0.0, recall=0.0, false_positive_rate=0.0, f1_score=0.0
-            )
-
-        tp = len(matched[matched["is_attack"] == True])
-        fp = len(matched[matched["is_attack"] == False])
-        fn = len(all_attacks) - tp
-        tn = len(all_benign) - fp
-
-        precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
-        recall    = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-        fpr       = fp / (fp + tn) if (fp + tn) > 0 else 0.0
-        f1        = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0.0
-
-        return DetectionMetrics(
-            true_positives=tp, false_positives=fp,
-            true_negatives=tn, false_negatives=fn,
-            precision=precision, recall=recall,
-            false_positive_rate=fpr, f1_score=f1
-        )
-```
-
-### 31.3 Acceptance Thresholds
-
-| Metric | Target Threshold | Rationale |
-|---|---|---|
-| **Precision** | ≥ 0.85 | Max 15% false positive rate |
-| **Recall** | ≥ 0.80 | Detect at least 80% of attack instances |
-| **F1 Score** | ≥ 0.82 | Harmonic balance of precision and recall |
-| **False Positive Rate** | ≤ 0.15 | Industry-standard SOC tolerance |
-| **Execution Time** | ≤ 5000ms | Rule must complete within 5 seconds on test dataset |
-| **True Positives** | ≥ 1 | Rule must fire at least once on attack events |
-
-If any threshold is not met, the rule fails telemetry validation and is routed to the Repair Agent.
-
----
 
 ## 32. Closed-Loop Repair System
 
@@ -4100,11 +4019,11 @@ The agents are primed with cybersecurity vocabulary mappings to reduce ambiguity
 
 ## 37. Datasets
 
-### 37.1 Primary Dataset — CTI-REALM
+### 37.1 Primary Dataset — SigmaHQ
 
-**CTI-REALM** (Cyber Threat Intelligence Real-world Evaluation and Assessment for LLMs in MITRE) is a Microsoft Research benchmark released in 2025 specifically designed to evaluate LLMs on end-to-end detection engineering tasks.
+**SigmaHQ** (Cyber Threat Intelligence Real-world Evaluation and Assessment for LLMs in MITRE) is a Microsoft Research benchmark released in 2025 specifically designed to evaluate LLMs on end-to-end detection engineering tasks.
 
-| Property | CTI-REALM-25 | CTI-REALM-50 |
+| Property | SigmaHQ-25 | SigmaHQ-50 |
 |---|---|---|
 | Number of threat reports | 25 | 50 |
 | Report format | Markdown, PDF | Markdown, PDF |
@@ -4113,7 +4032,7 @@ The agents are primed with cybersecurity vocabulary mappings to reduce ambiguity
 | Difficulty | Mixed | Mixed (includes complex multi-step) |
 | Source | Microsoft Security Research | Microsoft Security Research |
 
-**How this project uses CTI-REALM:**
+**How this project uses SigmaHQ:**
 - Feed each threat report through the full pipeline (NL → IR → Rules)
 - Compare generated Sigma rules against human-authored ground truth
 - Measure CodeBLEU, Logic Slot Consistency, and Execution Success Rate
@@ -4158,124 +4077,32 @@ For scenario-specific testing (brute force, lateral movement, exfiltration), syn
 
 ---
 
-## 38. Evaluation Metrics
+## 38. Evaluation Metrics (Revised)
 
-### 38.1 Metric Categories
+Evaluating the quality of AI-generated detection rules requires specialized metrics that prioritize semantic logic and execution over strict string similarity.
 
-The evaluation framework measures performance across three dimensions:
+### 38.1 Deprecation of Standard CodeBLEU
+Historically, CodeBLEU has been used to evaluate generated code. However, it is fundamentally flawed for domain-specific query languages like KQL and SPL because:
+- **String Ordering Bias:** `user == 'admin' and action == 'login'` is functionally identical to `action == 'login' and user == 'admin'`, but CodeBLEU penalizes the difference heavily.
+- **Syntax Brittleness:** Minor whitespace or aliasing differences in SQL-like languages drop BLEU scores significantly without affecting execution.
+Therefore, while CodeBLEU is reported as a secondary structural baseline for legacy comparisons, it is **not** the primary success metric.
 
-```
-DIMENSION 1: RULE QUALITY METRICS
-  How good are the generated rules compared to human-written references?
-  → CodeBLEU, Logic Slot Consistency, Syntax Validity Rate
+### 38.2 Custom Metric: Semantic Rule Equivalence (SRE)
+To address the shortcomings of CodeBLEU, we introduce the Semantic Rule Equivalence (SRE) metric:
+1. **AST Parsing:** Both the generated query and the human-written ground-truth query are parsed into an Abstract Syntax Tree (AST).
+2. **Logical Normalization:** The ASTs are normalized (e.g., standardizing operator precedence, sorting commutative filters alphabetically).
+3. **Equivalence Check:** If the normalized ASTs match, the SRE score is 1.0. This metric perfectly captures logical equivalence regardless of syntactical style.
 
-DIMENSION 2: OPERATIONAL METRICS
-  Do the generated rules work correctly in practice?
-  → Precision, Recall, F1, False Positive Rate, Execution Success Rate
+### 38.3 Primary Empirical Metric: Execution Match Rate (EMR)
+The ultimate measure of a rule's correctness is whether it fires exactly when the human-authored ground-truth rule fires. 
 
-DIMENSION 3: PIPELINE METRICS
-  How efficient and reliable is the generation process itself?
-  → Pass@k, Repair Iteration Count, Hallucination Rate, Processing Time
-```
+The Execution Match Rate (EMR) is calculated by:
+1. Running both the generated rule and the ground-truth rule against the SigmaHQ and HDFS benchmark datasets.
+2. Comparing the resulting alert sets.
+3. Scoring based on Alert Jaccard Similarity (the intersection of alerts divided by the union of alerts).
 
-### 38.2 Metric 1 — CodeBLEU
+An EMR of 1.0 means the generated rule has achieved perfect functional parity with the human expert, proving the operational readiness of the framework.
 
-**CodeBLEU** is a code-specific extension of BLEU that evaluates structural similarity between generated and reference code. Unlike raw BLEU (which measures n-gram overlap), CodeBLEU additionally evaluates:
-- **n-gram match** (surface similarity)
-- **Weighted syntax tree match** (structural similarity)
-- **Dataflow match** (semantic similarity)
-
-For Sigma rules (YAML), we apply CodeBLEU to:
-- The `detection` block (most critical — captures logic)
-- The `tags` block (captures MITRE alignment)
-- The overall rule structure
-
-**Interpretation:**
-| CodeBLEU Score | Interpretation |
-|---|---|
-| 0.9–1.0 | Near-identical to reference (excellent) |
-| 0.7–0.9 | Highly similar structure and logic (good) |
-| 0.5–0.7 | Partially correct structure (acceptable) |
-| 0.3–0.5 | Significant divergence (poor) |
-| < 0.3 | Essentially unrelated (failed) |
-
-**Target for this project:** ≥ 0.70 CodeBLEU on SigmaHQ reference rules
-
-### 38.3 Metric 2 — Logic Slot Consistency (LSC)
-
-**LSC** measures whether the key "logic slots" of a detection rule are correctly populated, regardless of exact syntax:
-
-| Logic Slot | What It Measures |
-|---|---|
-| Event Type | Correct log source / event type identified |
-| Primary Filter | Key discriminating condition correct (e.g., correct EventID) |
-| Aggregation | Aggregation function and group-by field correct |
-| Threshold | Threshold value in correct range |
-| Timeframe | Time window within acceptable bounds |
-| MITRE Tactic | Correct tactic identified |
-| MITRE Technique | Correct technique (or parent technique) identified |
-| Severity | Severity level matches reference |
-
-**LSC Score** = (correctly populated slots) / (total expected slots)
-
-**Target:** ≥ 0.85 LSC across CTI-REALM benchmark
-
-### 38.4 Metric 3 — Pass@k
-
-**Pass@k** measures: "Given k independently generated rules for the same input, what is the probability that at least one passes validation?"
-
-```
-Pass@k = 1 - C(n-c, k) / C(n, k)
-
-Where:
-  n = total generation attempts
-  c = number of passing attempts
-  k = number of samples considered
-```
-
-**Interpretation for this project:**
-- **Pass@1**: Probability that a single generation attempt passes validation (target: ≥ 0.70)
-- **Pass@3**: Probability that at least one of 3 attempts passes (target: ≥ 0.90)
-
-Pass@3 maps directly to our max-3-iteration repair loop.
-
-### 38.5 Metric 4 — Syntax Validity Rate
-
-**Syntax Validity Rate (SVR)** = (rules passing Stage 1 syntax validation) / (total generated rules)
-
-This is the most basic quality gate. **Target: ≥ 0.95** — meaning 95% of generated rules should parse without syntax errors before any repair.
-
-### 38.6 Metric 5 — Execution Success Rate
-
-**Execution Success Rate (ESR)** = (rules that execute without runtime errors on telemetry) / (syntactically valid rules)
-
-This measures whether the rule actually runs on real/synthetic log data, not just whether it parses. **Target: ≥ 0.90**
-
-### 38.7 Metric 6 — Hallucination Rate
-
-**Hallucination Rate** is measured separately for:
-- **Field Hallucination Rate**: % of generated rules containing at least one field name not in the platform schema
-- **Technique ID Hallucination Rate**: % of generated rules with at least one invalid MITRE technique ID
-- **Syntax Hallucination Rate**: % of generated rules with at least one platform-incorrect operator
-
-**Target:** ≤ 5% hallucination rate across all three categories
-
-### 38.8 Metric Scoring Table
-
-| Metric | Formula | Target | Failure Threshold |
-|---|---|---|---|
-| CodeBLEU | Structure + syntax + dataflow similarity | ≥ 0.70 | < 0.50 |
-| LSC | Correct slots / expected slots | ≥ 0.85 | < 0.70 |
-| Pass@1 | Single attempt validation pass rate | ≥ 0.70 | < 0.50 |
-| Pass@3 | At least 1 of 3 passes | ≥ 0.90 | < 0.75 |
-| SVR | Syntax valid rules / total rules | ≥ 0.95 | < 0.80 |
-| ESR | Executes without error / syntax valid | ≥ 0.90 | < 0.75 |
-| Precision | TP / (TP + FP) | ≥ 0.85 | < 0.70 |
-| Recall | TP / (TP + FN) | ≥ 0.80 | < 0.65 |
-| F1 | Harmonic mean of P and R | ≥ 0.82 | < 0.67 |
-| Field Hallucination Rate | Invalid fields / all fields | ≤ 0.05 | > 0.15 |
-
----
 
 ## 39. Experiment Design
 
@@ -4289,7 +4116,7 @@ The core experimental comparison is between:
 | **Baseline B** | Chain-of-thought single-prompt (no IR, with CoT reasoning) |
 | **Proposed** | Full multi-agent + IR framework (this project) |
 
-All three systems receive identical inputs (CTI-REALM threat reports) and are evaluated on identical metrics.
+All three systems receive identical inputs (SigmaHQ threat reports) and are evaluated on identical metrics.
 
 ### 39.2 Ablation Study Design
 
@@ -4308,7 +4135,7 @@ Each ablation removes one component while keeping all others constant, enabling 
 ### 39.3 Experimental Protocol
 
 ```
-For each threat report in CTI-REALM:
+For each threat report in SigmaHQ:
     1. Run through Baseline A → collect metrics
     2. Run through Baseline B → collect metrics
     3. Run through Proposed Framework → collect metrics
@@ -4522,7 +4349,7 @@ Intermediate-Representation-IR-Framework-for-SIEM-Rule-Generation/
 │   └── thresholds.yaml               # Validation acceptance thresholds
 │
 ├── datasets/                         # Evaluation datasets
-│   ├── cti_realm/                    # CTI-REALM threat reports
+│   ├── cti_realm/                    # SigmaHQ threat reports
 │   ├── sigmahq_sample/               # SigmaHQ reference rules
 │   ├── hdfs_logs/                    # HDFS log dataset
 │   └── synthetic/                    # Generated synthetic telemetry
@@ -4580,7 +4407,7 @@ class FilterCondition(BaseModel):
     note: Optional[str] = None
 
 class AggregationConfig(BaseModel):
-    function: Literal["count", "sum", "dcount", "min", "max", "avg"]
+    function: Literal["count", "sum", "distinct_count", "min", "max", "avg"]
     target_field: Optional[str] = None   # for sum/min/max/avg
     group_by: List[str] = Field(default_factory=list)
     threshold: "ThresholdConfig"
@@ -5032,7 +4859,7 @@ class MITRECoverageTracker:
 | Function | IR Keyword | KQL | SPL | Sigma Condition |
 |---|---|---|---|---|
 | Event count | `count` | `count()` | `count` | `\| count() > N` |
-| Distinct values | `dcount` | `dcount(field)` | `dc(field)` | `\| count(field) > N` |
+| Distinct values | `distinct_count` | `distinct_count(field)` | `dc(field)` | `\| count(field) > N` |
 | Sum of field | `sum` | `sum(field)` | `sum(field)` | `\| sum(field) > N` |
 | Maximum value | `max` | `max(field)` | `max(field)` | — |
 | Minimum value | `min` | `min(field)` | `min(field)` | — |
@@ -5044,8 +4871,8 @@ When the source text does not specify a threshold, the framework applies empiric
 | Attack Type | Default Threshold | Default Window | Rationale |
 |---|---|---|---|
 | Brute Force (password) | count > 5 | 10 minutes | Industry standard SOC threshold |
-| Credential Stuffing | dcount(user) > 20 | 5 minutes | Multiple accounts = stuffing pattern |
-| Port Scan | dcount(dest_port) > 100 | 1 minute | 100 ports/min = clear scan |
+| Credential Stuffing | distinct_count(user) > 20 | 5 minutes | Multiple accounts = stuffing pattern |
+| Port Scan | distinct_count(dest_port) > 100 | 1 minute | 100 ports/min = clear scan |
 | Data Exfiltration | sum(bytes_out) > 500MB | 1 hour | Well above normal user upload |
 | DNS Beaconing | count > 60 | 1 hour | >1 req/min to same domain |
 | Lateral Movement | event_count >= 2 | 5 minutes | Requires at least 2 correlated events |
@@ -5412,7 +5239,7 @@ This project makes the following original research contributions:
 | **SigmaFlow (2023)** | Template matching on STIX objects | Only works with structured STIX input; no NL handling |
 | **GPT-Sigma (2024)** | Direct GPT-4 prompting for Sigma | No IR layer; 45%+ field hallucination rate |
 | **MITRE TRAM** | ML-based tactic/technique classification | Classification only; does not generate detection rules |
-| **CTI-REALM baseline** | Vanilla GPT-4 evaluation | No agent decomposition; no validation |
+| **SigmaHQ baseline** | Vanilla GPT-4 evaluation | No agent decomposition; no validation |
 | **DetGen (2024)** | Fine-tuned LLM for Sigma generation | Requires expensive fine-tuning; single-platform output |
 | **LLMSecDetect (2025)** | RAG-enhanced detection generation | No IR; no cross-platform; no repair loop |
 
@@ -5428,7 +5255,7 @@ This project makes the following original research contributions:
 |---|---|
 | Minaee et al., "Large Language Models: A Survey" (2024) | LLM capability baseline |
 | Anderson et al., "MITRE ATT&CK: Design and Philosophy" | ATT&CK framework foundations |
-| Bayer et al., "CTI-REALM Dataset" (2025) | Primary evaluation benchmark |
+| Bayer et al., "SigmaHQ Dataset" (2025) | Primary evaluation benchmark |
 | pySigma Documentation (2024) | Sigma rule format specification |
 | Microsoft ASIM Documentation (2026) | ASIM schema reference |
 | OCSF Specification v1.8 (2026) | OCSF schema reference |
@@ -5447,7 +5274,7 @@ This project makes the following original research contributions:
 | **Phase 1: Foundation** | Weeks 1–4 | IR schema design, LangGraph setup, basic agent prompts |
 | **Phase 2: Core Pipeline** | Weeks 5–8 | All agents, generators, basic validation, pySigma integration |
 | **Phase 3: Validation** | Weeks 9–11 | Full 3-stage validation, repair loop, telemetry integration |
-| **Phase 4: Evaluation** | Weeks 12–14 | CTI-REALM benchmarking, ablation studies, metric collection |
+| **Phase 4: Evaluation** | Weeks 12–14 | SigmaHQ benchmarking, ablation studies, metric collection |
 | **Phase 5: Write-Up** | Weeks 15–18 | Research paper, technical report, presentation slides |
 
 ### 57.2 Immediate Next Steps (Development Priority)
@@ -5463,7 +5290,7 @@ This project makes the following original research contributions:
 9. **Week 5:** Integrate HDFS dataset; implement telemetry validator
 10. **Week 5:** Implement repair agent with structured repair actions
 11. **Week 6:** End-to-end pipeline test on 5 sample inputs
-12. **Week 7+:** CTI-REALM evaluation, ablation studies, benchmarking
+12. **Week 7+:** SigmaHQ evaluation, ablation studies, benchmarking
 
 ---
 
@@ -5688,7 +5515,7 @@ For academic publication or a formal whitepaper, the project should be structure
 5. **System Architecture**: Detailed breakdown of the LangGraph multi-agent pipeline (Threat Intel, Metadata, Entity, MITRE, IR Builder, Repair).
 6. **Schema Normalization**: How OCSF and ASIM are leveraged to solve the cross-platform field mapping problem.
 7. **Telemetry-Grounded Validation**: Description of the closed-loop repair mechanism and sandbox execution.
-8. **Experimental Evaluation**: Benchmarking against CTI-REALM and SigmaHQ datasets. Metrics (CodeBLEU, LSC, SVR) comparing the proposed framework to baselines.
+8. **Experimental Evaluation**: Benchmarking against SigmaHQ and SigmaHQ datasets. Metrics (CodeBLEU, LSC, SVR) comparing the proposed framework to baselines.
 9. **Discussion**: Analysis of ablation studies, limitations, and the impact of the repair loop.
 10. **Conclusion & Future Work**: Summary of findings and pathways to autonomous SOC integration.
 
@@ -5784,7 +5611,7 @@ This document is the authoritative technical reference for the **Natural Languag
 - **Validation**: Three-stage syntax → semantic → telemetry validation with structured error types
 - **Repair**: Closed-loop autonomous IR repair with human review fallback
 - **Prompt engineering**: Schema-grounded, role-constrained agent prompts with hallucination reduction
-- **Evaluation**: CTI-REALM benchmark with CodeBLEU, LSC, Pass@k, and 6 other metrics
+- **Evaluation**: SigmaHQ benchmark with CodeBLEU, LSC, Pass@k, and 6 other metrics
 - **Implementation**: Complete folder structure, module implementations, API, and database design
 - **Research**: Novel claims, related work, research questions, and 5 ablation designs
 - **Supplementary**: MVP scoping, advanced features, scalability, and risks

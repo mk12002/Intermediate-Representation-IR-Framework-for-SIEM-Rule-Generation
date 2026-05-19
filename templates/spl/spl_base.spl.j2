@@ -1,0 +1,8 @@
+index={{ table_name }}
+{% for filter in filters %}
+{{ filter.field }}="{% if filter.operator == 'contains' %}*{{ filter.value }}*{% else %}{{ filter.value }}{% endif %}"
+{% endfor %}
+{% if aggregation %}
+| stats {{ aggregation.function }}({% if aggregation.target_field %}{{ aggregation.target_field }}{% else %}*{% endif %}) as agg_val by {{ aggregation.group_by | join(', ') }}
+| where agg_val {% if aggregation.threshold.operator == 'greater_than' %}>{% elif aggregation.threshold.operator == 'equals' %}={% else %}>{% endif %} {{ aggregation.threshold.value }}
+{% endif %}

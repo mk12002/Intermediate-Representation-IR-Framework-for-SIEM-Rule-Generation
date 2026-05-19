@@ -1,0 +1,8 @@
+{{ table_name }}
+{% for filter in filters %}
+| where {{ filter.field }} {% if filter.operator == 'equals' %}=={% elif filter.operator == 'contains' %}contains{% elif filter.operator == 'not_equals' %}!={% else %}=={% endif %} '{{ filter.value }}'
+{% endfor %}
+{% if aggregation %}
+| summarize AggregatedValue = {{ aggregation.function }}({% if aggregation.target_field %}{{ aggregation.target_field }}{% endif %}) by {{ aggregation.group_by | join(', ') }}
+| where AggregatedValue {% if aggregation.threshold.operator == 'greater_than' %}>{% elif aggregation.threshold.operator == 'equals' %}=={% else %}>{% endif %} {{ aggregation.threshold.value }}
+{% endif %}

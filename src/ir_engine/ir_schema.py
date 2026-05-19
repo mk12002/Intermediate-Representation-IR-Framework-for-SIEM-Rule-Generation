@@ -17,7 +17,7 @@ class ThresholdConfig(BaseModel):
     value: Union[int, float]
 
 class AggregationConfig(BaseModel):
-    function: Literal["count", "sum", "dcount", "min", "max", "avg"]
+    function: Literal["count", "sum", "distinct_count", "min", "max", "avg"]
     target_field: Optional[str] = None   # for sum/min/max/avg
     group_by: List[str] = Field(default_factory=list)
     threshold: ThresholdConfig
