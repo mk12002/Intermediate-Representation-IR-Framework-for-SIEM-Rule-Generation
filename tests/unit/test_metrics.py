@@ -41,6 +41,20 @@ def test_fvr_flags_hallucinated_field():
     assert field_validity_rate([kql], ASIM_AUTH_FIELDS) == 0.0
 
 
+def test_fvr_flags_hallucinated_table():
+    """MASTER_PLAN's FVR definition is 'every referenced field/table' — a
+    fabricated table like _Im_ServerError must fail FVR even if every field
+    referenced afterward happens to be a real field name."""
+    kql = '_Im_ServerError()\n| where EventResult == "Failure"'
+    assert field_validity_rate([kql], ASIM_AUTH_FIELDS) == 0.0
+
+
+def test_fvr_accepts_real_table_name_variants():
+    for table in ["imAuthentication", "ASimAuthentication", "_Im_Authentication"]:
+        kql = f'{table}\n| where EventResult == "Failure"'
+        assert field_validity_rate([kql], ASIM_AUTH_FIELDS) == 1.0
+
+
 def test_fvr_empty_list():
     assert field_validity_rate([], ASIM_AUTH_FIELDS) == 0.0
 

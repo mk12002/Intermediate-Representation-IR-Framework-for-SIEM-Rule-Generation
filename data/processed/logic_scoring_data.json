@@ -1,0 +1,182 @@
+[
+ {
+  "pair_id": "5b6ae038-f66e-4f74-9315-df52fd492be4-sop",
+  "system": "A",
+  "kql": "let threshold = 1;\nimProcessEvent\n| where ActingProcessCommandLine contains 'accepteula' \n    and ActingProcessCommandLine contains '-s' \n    and ActingProcessCommandLine contains '-r' \n    and ActingProcessCommandLine contains '-q'\n    and not(ActingProcessFilename == 'sdelete.exe')\n| summarize count() by bin(TimeGenerated, 1h)\n| where count_ > threshold",
+  "ground_truth": "imProcess\n| where CommandLine has_all (\"accepteula\", \"-s\", \"-r\", \"-q\")\n| where Process !endswith \"sdelete.exe\"\n| where CommandLine !has \"sdelete\"\n| extend AccountName = tostring(split(ActorUsername, @'\\')[1]), AccountNTDomain = tostring(split(ActorUsername, @'\\')[0])",
+  "nl": "Alert when a process is run with the command-line flags accepteula, -s, -r, and -q together, and the process is not literally named sdelete.exe \u2014 this indicates Sysinternals sdelete being used to recursively wipe files via a renamed binary.",
+  "logic_correctness_verdict": "FAIL",
+  "notes": "wrong table imProcessEvent (should be imProcessCreate)"
+ },
+ {
+  "pair_id": "bd89c7a0-76cb-4fa1-bc64-c366687cda9e-casual",
+  "system": "A",
+  "kql": "imProcessEvent\n| where ActingProcessName contains 'cscript' or TargetProcessName contains 'cscript'\n| project TimeGenerated, ActingProcessFilename, ActingProcessCommandLine, TargetProcessFilename, TargetProcessCommandLine, ActorUsername, DvcHostname",
+  "ground_truth": "imProcessCreate\n| where Process has \"cscript.exe\"\n| extend FileName=tostring(split(Process, '\\\\')[-1])\n| where FileName =~ \"cscript.exe\"\n| extend removeSwitches = replace(@\"/+[a-zA-Z0-9:]+\", \"\", CommandLine)\n| extend CommandLine = trim(@\"[a-zA-Z0-9\\\\:\"\"]*cscript(.exe)?(\"\")?(\\s)+\", removeSwitches)\n// handle case where script name is enclosed in \" characters or is not enclosed in quotes \n| extend ScriptName= iff(CommandLine startswith @\"\"\"\", \nextract(@\"([:\\\\a-zA-Z_\\-\\s0-9\\.()]+)(\"\"?)\", 0, CommandLine), \nextract(@\"([:\\\\a-zA-Z_\\-0-9\\.()]+)(\"\"?)\", 0, CommandLine))\n| extend ScriptName=trim(@\"\"\"\", ScriptName) , ScriptNameLength=strlen(ScriptName)\n// extract remainder of commandline as script parameters: \n| extend ScriptParams = iff(ScriptNameLength < strlen(CommandLine), substring(CommandLine, ScriptNameLength +1), \"\")\n| summarize min(TimeGenerated), count() by Dvc, User, ScriptName, ScriptParams, EventVendor, EventProduct\n| order by count_ asc nulls last \n| extend timestamp = min_TimeGenerated, HostCustomEntity = Dvc, AccountCustomEntity = User",
+  "nl": "give me a rundown of what scripts are running via cscript across the environment",
+  "logic_correctness_verdict": "FAIL",
+  "notes": "wrong table imProcessEvent"
+ },
+ {
+  "pair_id": "bd89c7a0-76cb-4fa1-bc64-c366687cda9e-casual",
+  "system": "B",
+  "kql": "imProcessCreate\n| where ActingProcessFilename == (\"Script Execution / Process Injection\")\n| project ActingProcessFilename",
+  "ground_truth": "imProcessCreate\n| where Process has \"cscript.exe\"\n| extend FileName=tostring(split(Process, '\\\\')[-1])\n| where FileName =~ \"cscript.exe\"\n| extend removeSwitches = replace(@\"/+[a-zA-Z0-9:]+\", \"\", CommandLine)\n| extend CommandLine = trim(@\"[a-zA-Z0-9\\\\:\"\"]*cscript(.exe)?(\"\")?(\\s)+\", removeSwitches)\n// handle case where script name is enclosed in \" characters or is not enclosed in quotes \n| extend ScriptName= iff(CommandLine startswith @\"\"\"\", \nextract(@\"([:\\\\a-zA-Z_\\-\\s0-9\\.()]+)(\"\"?)\", 0, CommandLine), \nextract(@\"([:\\\\a-zA-Z_\\-0-9\\.()]+)(\"\"?)\", 0, CommandLine))\n| extend ScriptName=trim(@\"\"\"\", ScriptName) , ScriptNameLength=strlen(ScriptName)\n// extract remainder of commandline as script parameters: \n| extend ScriptParams = iff(ScriptNameLength < strlen(CommandLine), substring(CommandLine, ScriptNameLength +1), \"\")\n| summarize min(TimeGenerated), count() by Dvc, User, ScriptName, ScriptParams, EventVendor, EventProduct\n| order by count_ asc nulls last \n| extend timestamp = min_TimeGenerated, HostCustomEntity = Dvc, AccountCustomEntity = User",
+  "nl": "give me a rundown of what scripts are running via cscript across the environment",
+  "logic_correctness_verdict": "FAIL",
+  "notes": "nonsensical literal filter value (phrase, not a real process name)"
+ },
+ {
+  "pair_id": "4e3af8e3-a29f-4eec-ac25-55517dca6512-casual",
+  "system": "B",
+  "kql": "imProcessCreate\n| where  == 1",
+  "ground_truth": "let freqs = imProcessCreate \n  // filter out common randomly named files related to MSI installers and browsers\n  | where not(Process has_all ('TRA', '.tmp') and Process matches regex @\"\\\\TRA[0-9A-Fa-f]{3,4}\\.tmp\")\n  | where not(Process has_all ('MSI', '.tmp') and Process matches regex @\"\\\\MSI[0-9A-Fa-f]{3,4}\\.tmp\")\n  | extend FileName = tostring(split(Process, '\\\\')[-1])\n  // normalize guids\n  | extend FileName = replace(\"[0-9A-Fa-f]{8}[-][0-9A-Fa-f]{4}[-][0-9A-Fa-f]{4}[-][0-9A-Fa-f]{4}[-][0-9A-Fa-f]{12}\", \"<guid>\", FileName)\n  | extend FileName = replace(@'\\d', 'n', FileName)\n  | summarize frequency=count(), Since=min(TimeGenerated), LastSeen=max(TimeGenerated) by FileName , EventVendor, EventProduct;\nlet precentile_5 = toscalar ( freqs | summarize percentiles(frequency, 5));\nfreqs\n  | where frequency <= precentile_5\n  | order by frequency asc\n  | project FileName, frequency, precentile_5, Since, LastSeen , EventVendor, EventProduct\n  // restrict results to unusual processes seen in last day \n  | where LastSeen >= ago(1d)\n  | extend timestamp = LastSeen",
+  "nl": "show me the rarest processes that just started showing up for the first time \u2014 works best looking back 3+ days",
+  "logic_correctness_verdict": "FAIL",
+  "notes": "degenerate query, where clause has no field"
+ },
+ {
+  "pair_id": "4e3af8e3-a29f-4eec-ac25-55517dca6512-sop",
+  "system": "B",
+  "kql": "imProcessCreate\n| summarize AggregatedValue = count()\n    by Process, bin(TimeGenerated, 3d)\n| where AggregatedValue <= 5.0",
+  "ground_truth": "let freqs = imProcessCreate \n  // filter out common randomly named files related to MSI installers and browsers\n  | where not(Process has_all ('TRA', '.tmp') and Process matches regex @\"\\\\TRA[0-9A-Fa-f]{3,4}\\.tmp\")\n  | where not(Process has_all ('MSI', '.tmp') and Process matches regex @\"\\\\MSI[0-9A-Fa-f]{3,4}\\.tmp\")\n  | extend FileName = tostring(split(Process, '\\\\')[-1])\n  // normalize guids\n  | extend FileName = replace(\"[0-9A-Fa-f]{8}[-][0-9A-Fa-f]{4}[-][0-9A-Fa-f]{4}[-][0-9A-Fa-f]{4}[-][0-9A-Fa-f]{12}\", \"<guid>\", FileName)\n  | extend FileName = replace(@'\\d', 'n', FileName)\n  | summarize frequency=count(), Since=min(TimeGenerated), LastSeen=max(TimeGenerated) by FileName , EventVendor, EventProduct;\nlet precentile_5 = toscalar ( freqs | summarize percentiles(frequency, 5));\nfreqs\n  | where frequency <= precentile_5\n  | order by frequency asc\n  | project FileName, frequency, precentile_5, Since, LastSeen , EventVendor, EventProduct\n  // restrict results to unusual processes seen in last day \n  | where LastSeen >= ago(1d)\n  | extend timestamp = LastSeen",
+  "nl": "Compute process execution frequency over the lookback window (recommended 3 or more days) and surface processes falling at or below the 5th percentile of frequency, after excluding common randomly-named installer temp files.",
+  "logic_correctness_verdict": "PASS",
+  "notes": "matches rarity intent: low-count threshold over Process grouping, lenient on exact percentile mechanism"
+ },
+ {
+  "pair_id": "365a889c-ae0f-461d-bdf1-d6ce11d0ef6f-original",
+  "system": "A",
+  "kql": "let threshold = 1;\nimProcessEvents\n| where EventType == 'SignedBinaryProxyExecution' and ActingProcessName contains ('rundll32.exe') \n    or TargetProcessFilename contains ('rundll32.exe')\n| summarize count() by bin(TimeGenerated, 5m)\n| where count_ > threshold",
+  "ground_truth": "imProcessCreate\n| where Process has \"rundll32.exe\"\n// Uncomment the next line and add your commandLine Whitelisted/ignore terms.For example \"payload.dll\"\n// | where CommandLine !contains (\"payload.dll\") \n| extend HostCustomEntity = Dvc, AccountCustomEntity = User",
+  "nl": "This detection uses Normalized Process Events to hunt Signed Binary Proxy Execution: Rundll32 activities",
+  "logic_correctness_verdict": "FAIL",
+  "notes": "wrong table imProcessEvents (hallucinated plural)"
+ },
+ {
+  "pair_id": "365a889c-ae0f-461d-bdf1-d6ce11d0ef6f-casual",
+  "system": "A",
+  "kql": "let threshold = 1;\nprocess_event\n| where ActingProcessName == 'rundll32.exe' or TargetProcessName == 'rundll32.exe' and EventResultDetails contains ('code_execution') \n| summarize count() by bin(TimeGenerated,5m)\n| where count_ > threshold",
+  "ground_truth": "imProcessCreate\n| where Process has \"rundll32.exe\"\n// Uncomment the next line and add your commandLine Whitelisted/ignore terms.For example \"payload.dll\"\n// | where CommandLine !contains (\"payload.dll\") \n| extend HostCustomEntity = Dvc, AccountCustomEntity = User",
+  "nl": "hunt for rundll32 being used to sneak code execution past defenses",
+  "logic_correctness_verdict": "FAIL",
+  "notes": "wrong table process_event (wrong naming convention entirely)"
+ },
+ {
+  "pair_id": "365a889c-ae0f-461d-bdf1-d6ce11d0ef6f-sop",
+  "system": "A",
+  "kql": "imProcessEvent\n| where ActingProcessFilename == 'rundll32.exe' and TargetProcessName != '' \n| project TimeGenerated, EventMessage, ActingProcessCommandLine, TargetProcessCurrentDirectory, ActorUsername, ThreatCategory, ThreatConfidence",
+  "ground_truth": "imProcessCreate\n| where Process has \"rundll32.exe\"\n// Uncomment the next line and add your commandLine Whitelisted/ignore terms.For example \"payload.dll\"\n// | where CommandLine !contains (\"payload.dll\") \n| extend HostCustomEntity = Dvc, AccountCustomEntity = User",
+  "nl": "Surface all rundll32.exe execution events for manual review of potential signed-binary proxy execution.",
+  "logic_correctness_verdict": "FAIL",
+  "notes": "wrong table imProcessEvent"
+ },
+ {
+  "pair_id": "c4956c0b-4527-406c-b135-ef44002e1e70-casual",
+  "system": "B",
+  "kql": "imNetworkSession",
+  "ground_truth": "let querystarttime = 2d;\nlet queryendtime = 1d;\nlet TimeDeltaThreshold = 10;\nlet TotalEventsThreshold = 15;\nlet PercentBeaconThreshold = 80;\n_Im_Dns(starttime=ago(querystarttime), endtime=ago(queryendtime))\n| where isnotempty(SrcIpAddr)\n| project TimeGenerated, SrcIpAddr, DnsQuery\n| sort by SrcIpAddr asc,TimeGenerated asc\n| serialize\n| extend nextTimeGenerated = next(TimeGenerated, 1), nextSrcIpAddr = next(SrcIpAddr, 1)\n| extend TimeDeltainSeconds = datetime_diff('second',nextTimeGenerated,TimeGenerated)\n| where SrcIpAddr == nextSrcIpAddr\n//Whitelisting criteria/ threshold criteria\n| where TimeDeltainSeconds > TimeDeltaThreshold\n| project TimeGenerated, TimeDeltainSeconds, SrcIpAddr, DnsQuery\n| summarize count(), make_list(TimeDeltainSeconds) by TimeDeltainSeconds, bin(TimeGenerated, 1h), SrcIpAddr, DnsQuery\n| summarize (MostFrequentTimeDeltaCount, MostFrequentTimeDeltainSeconds) = arg_max(count_, TimeDeltainSeconds), TotalEvents=sum(count_)\nby bin(TimeGenerated, 1h), SrcIpAddr, DnsQuery\n| where TotalEvents > TotalEventsThreshold\n| extend BeaconPercent = MostFrequentTimeDeltaCount/toreal(TotalEvents) * 100\n| where BeaconPercent > PercentBeaconThreshold\n| order by BeaconPercent\n| take 50\n| extend IP_0_Address = SrcIpAddr\n| extend DNS_0_DomainName = DnsQuery",
+  "nl": "look for DNS beaconing \u2014 same time gap between queries over and over is a C2 tell",
+  "logic_correctness_verdict": "FAIL",
+  "notes": "empty query body, no filters/aggregation at all"
+ },
+ {
+  "pair_id": "c4956c0b-4527-406c-b135-ef44002e1e70-sop",
+  "system": "A",
+  "kql": "let BeaconThreshold = 15;\nlet MinTimeDeltaSecs = 10;\nlet ConfidenceThreshold = 0.8;\n_Im_Dns()\n| where TimeGenerated >= ago(2d) and TimeGenerated < ago(1d)\n| summarize CountTotal=count(), MaxCount=max(dcount(bin(TimeGenerated, 60s))) by SrcIpAddr\n| where MaxCount > BeaconThreshold\n| join kind=inner (\n    _Im_Dns() \n        | where TimeGenerated >= ago(2d) and TimeGenerated < ago(1d)\n        | summarize CountTotal=count(), MinTimeDelta=min(bin(TimeGenerated, 60s)) by SrcIpAddr\n        | where bin(TimeGenerated, 60s) == dcount(bin(TimeGenerated, 60s))/CountTotal > ConfidenceThreshold \n    ) on SrcIpAddr\n| order by TimeGenerated desc",
+  "ground_truth": "let querystarttime = 2d;\nlet queryendtime = 1d;\nlet TimeDeltaThreshold = 10;\nlet TotalEventsThreshold = 15;\nlet PercentBeaconThreshold = 80;\n_Im_Dns(starttime=ago(querystarttime), endtime=ago(queryendtime))\n| where isnotempty(SrcIpAddr)\n| project TimeGenerated, SrcIpAddr, DnsQuery\n| sort by SrcIpAddr asc,TimeGenerated asc\n| serialize\n| extend nextTimeGenerated = next(TimeGenerated, 1), nextSrcIpAddr = next(SrcIpAddr, 1)\n| extend TimeDeltainSeconds = datetime_diff('second',nextTimeGenerated,TimeGenerated)\n| where SrcIpAddr == nextSrcIpAddr\n//Whitelisting criteria/ threshold criteria\n| where TimeDeltainSeconds > TimeDeltaThreshold\n| project TimeGenerated, TimeDeltainSeconds, SrcIpAddr, DnsQuery\n| summarize count(), make_list(TimeDeltainSeconds) by TimeDeltainSeconds, bin(TimeGenerated, 1h), SrcIpAddr, DnsQuery\n| summarize (MostFrequentTimeDeltaCount, MostFrequentTimeDeltainSeconds) = arg_max(count_, TimeDeltainSeconds), TotalEvents=sum(count_)\nby bin(TimeGenerated, 1h), SrcIpAddr, DnsQuery\n| where TotalEvents > TotalEventsThreshold\n| extend BeaconPercent = MostFrequentTimeDeltaCount/toreal(TotalEvents) * 100\n| where BeaconPercent > PercentBeaconThreshold\n| order by BeaconPercent\n| take 50\n| extend IP_0_Address = SrcIpAddr\n| extend DNS_0_DomainName = DnsQuery",
+  "nl": "Over the period from 2 days ago to 1 day ago, identify source IPs whose DNS query inter-arrival time exceeds 10 seconds, repeats at least 15 times, where the single most common time-delta accounts for at least 80% of occurrences \u2014 indicative of beaconing.",
+  "logic_correctness_verdict": "FAIL",
+  "notes": "aggregation does not implement inter-arrival time-delta beaconing logic, just bins+counts"
+ },
+ {
+  "pair_id": "b35f6633-0d18-494c-a5e4-2828daf442bf-original",
+  "system": "A",
+  "kql": "let threshold = 20;\n_Im_Dns(responsecodename='NXDOMAIN')\n| where isnotempty(DnsResponseCodeName)\n| summarize count() by SrcIpAddr, bin(TimeGenerated,1h)\n| order by count_ desc\n| top 25",
+  "ground_truth": "let timeframe = 1d;\n_Im_Dns(starttime=ago(timeframe), endtime=now())\n| where EventSubType == 'response' and DnsResponseCodeName != 'NOERROR'\n| where isnotempty(SrcIpAddr)\n| summarize Count=count() by SrcIpAddr, DnsResponseCodeName\n| order by Count\n| take 25\n| extend IP_0_Address = SrcIpAddr",
+  "nl": "This query searches for the top 25 clients with the most errors.",
+  "logic_correctness_verdict": "FAIL",
+  "notes": "over-narrowed to NXDOMAIN only, description/ground-truth intends all error codes"
+ },
+ {
+  "pair_id": "8717e498-7b5d-4e23-9e7c-fa4913dbfd79-original",
+  "system": "A",
+  "kql": "let threshold = 50;\nimNetworkSession\n| where NetworkApplicationProtocol == 'SMB' and isnotempty(NetworkApplicationProtocol)\n| summarize AvgDeviation=avg(DstPortNumber), SrcCount=count() by SrcIpAddr, bin(TimeGenerated, 14d)\n| where AvgDeviation > threshold",
+  "ground_truth": "// Define the threshold for deviation\nlet threshold = 50;\n// Define the time range for the baseline data\nlet starttime = 14d;\nlet endtime = 1d;\n// Define the SMB ports to monitor\nlet SMBPorts = dynamic([\"139\", \"445\"]);\n// Get the baseline data for user network sessions and Filter for the defined time range\nlet userBaseline = _Im_NetworkSession(starttime=ago(starttime), endtime=ago(endtime))\n  | where ipv4_is_private(SrcIpAddr) and tostring(DstPortNumber) has_any (SMBPorts) and SrcIpAddr != DstIpAddr // Filter for private IP addresses and SMB ports\n  | summarize Count = count() by SrcIpAddr, DstPortNumber // Group by source IP and destination port\n  | summarize AvgCount = avg(Count) by SrcIpAddr, DstPortNumber; // Calculate the average count\n// Get the recent user activity data and Filter for recent activity\nlet recentUserActivity = _Im_NetworkSession(starttime=ago(endtime))\n  | where ipv4_is_private(SrcIpAddr) and tostring(DstPortNumber) has_any (SMBPorts) and SrcIpAddr != DstIpAddr // Filter for private IP addresses and SMB ports\n  | summarize StartTimeUtc = min(TimeGenerated), EndTimeUtc = max(TimeGenerated), RecentCount = count() by SrcIpAddr, DstPortNumber; // Group by source IP and destination port\n// Join the baseline and recent activity data\nlet UserBehaviorAnalysis = userBaseline\n  | join kind=inner (recentUserActivity) on SrcIpAddr, DstPortNumber\n  | extend Deviation = abs(RecentCount - AvgCount) / AvgCount; // Calculate the deviation\n// Filter for deviations greater than the threshold\nUserBehaviorAnalysis\n  | where Deviation > threshold\n  | project SrcIpAddr, DstPortNumber, Deviation, Count = RecentCount; // Project the required columns",
+  "nl": "This detection detects abnormal SMB traffic, a file-sharing protocol. By calculating the average deviation of SMB connections over last 14 days, flagging sources exceeding 50 average deviations.",
+  "logic_correctness_verdict": "FAIL",
+  "notes": "aggregation nonsensical: averages the port NUMBER, not connection counts"
+ },
+ {
+  "pair_id": "8717e498-7b5d-4e23-9e7c-fa4913dbfd79-sop",
+  "system": "B",
+  "kql": "imNetworkSession\n| where SrcIpAddr == (\"192.168.x.x\")\n| where  >= 0",
+  "ground_truth": "// Define the threshold for deviation\nlet threshold = 50;\n// Define the time range for the baseline data\nlet starttime = 14d;\nlet endtime = 1d;\n// Define the SMB ports to monitor\nlet SMBPorts = dynamic([\"139\", \"445\"]);\n// Get the baseline data for user network sessions and Filter for the defined time range\nlet userBaseline = _Im_NetworkSession(starttime=ago(starttime), endtime=ago(endtime))\n  | where ipv4_is_private(SrcIpAddr) and tostring(DstPortNumber) has_any (SMBPorts) and SrcIpAddr != DstIpAddr // Filter for private IP addresses and SMB ports\n  | summarize Count = count() by SrcIpAddr, DstPortNumber // Group by source IP and destination port\n  | summarize AvgCount = avg(Count) by SrcIpAddr, DstPortNumber; // Calculate the average count\n// Get the recent user activity data and Filter for recent activity\nlet recentUserActivity = _Im_NetworkSession(starttime=ago(endtime))\n  | where ipv4_is_private(SrcIpAddr) and tostring(DstPortNumber) has_any (SMBPorts) and SrcIpAddr != DstIpAddr // Filter for private IP addresses and SMB ports\n  | summarize StartTimeUtc = min(TimeGenerated), EndTimeUtc = max(TimeGenerated), RecentCount = count() by SrcIpAddr, DstPortNumber; // Group by source IP and destination port\n// Join the baseline and recent activity data\nlet UserBehaviorAnalysis = userBaseline\n  | join kind=inner (recentUserActivity) on SrcIpAddr, DstPortNumber\n  | extend Deviation = abs(RecentCount - AvgCount) / AvgCount; // Calculate the deviation\n// Filter for deviations greater than the threshold\nUserBehaviorAnalysis\n  | where Deviation > threshold\n  | project SrcIpAddr, DstPortNumber, Deviation, Count = RecentCount; // Project the required columns",
+  "nl": "Using a 14-day baseline (ending 1 day ago) of average SMB (ports 139/445) connection counts per private-IP source/port pair, flag sources in the most recent 1-day window whose connection count exceeds the baseline average by more than 50.",
+  "logic_correctness_verdict": "FAIL",
+  "notes": "degenerate: hardcoded placeholder-like IP literal, malformed where clause"
+ },
+ {
+  "pair_id": "a61e9fc1-dd9e-4588-a497-2a34a1d811bf-casual",
+  "system": "A",
+  "kql": "let threshold = 10;\nimNetworkSession\n| where DstAppType == 'DNS' and (DstPortNumber != 53 or SrcPortNumber != 53)\n    and isnotempty(DstAppName) \n    and contains(DstAppName, \"dns\")\n| summarize count() by bin(TimeGenerated, 1h), DstIpAddr\n| where count_ > threshold",
+  "ground_truth": "_Im_NetworkSession(starttime=ago(1d),endtime=now())\n| where DstAppName in (\"dns\",\"web-browsing\",\"http\",\"ssl\",\"smtp\") and DstPortNumber in (53, 80, 8080, 8000, 443, 8443, 25)\n| extend DstAppName = tolower(DstAppName)\n| where \n        (DstAppName == \"dns\" and not(DstPortNumber == 53)) or\n        (DstAppName in (\"web-browsing\",\"http\") and not(DstPortNumber in (80, 8080, 8000))) or\n        (DstAppName == \"ssl\" and not(DstPortNumber in (443, 8443))) or\n        (DstAppName == \"smtp\" and not(DstPortNumber == 25))\n| summarize Instances = count(), EventStartTime = min(EventStartTime), EventEndTime = max(EventEndTime) by SrcIpAddr, DstIpAddr, DstAppName, DstPortNumber\n| extend IP_0_Address = SrcIpAddr\n| extend IP_1_Address = DstIpAddr",
+  "nl": "catch traffic where the app doesn't match its usual port \u2014 like DNS not running on port 53",
+  "logic_correctness_verdict": "PASS",
+  "notes": "reasonable reading of casual paraphrase's single DNS example, correct table+direction+aggregation for that subset"
+ },
+ {
+  "pair_id": "a59ba76c-0205-4966-948e-3d5640140688-original",
+  "system": "A",
+  "kql": "let Threshold = 5;\n_Im_ServerError()\n| where EventResult == 'Server Error' and isnotempty(EventOriginalSubType)\n| summarize ServerCount=count(), SubTypes=make_set(EventOriginalSubType), FirstTime=min(TimeGenerated), LastTime=max(TimeGenerated) by SrcIpAddr, bin(TimeGenerated, 5m)\n| where ServerCount > Threshold\n| order by TimeGenerated desc",
+  "ground_truth": "// HTTP response status codes indicate whether a specific HTTP request has been successfully completed.\n// Please refer this for more details: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status\nlet threshold = 100; // You can update threshold value as per your environment\n_Im_WebSession(starttime=ago(1h))\n| where toint(EventResultDetails) between (500 .. 599)\n| summarize\n    TotalErrorCount = count(),\n    URLs=make_set(Url, 100),\n    EventStartTime = min(TimeGenerated),\n    EventEndTime = max(TimeGenerated),\n    EventResultDetailsSet=make_set(EventResultDetails,10)\n    by SrcIpAddr, bin(TimeGenerated, 5m), SrcUsername, SrcHostname\n| where TotalErrorCount > threshold\n| extend\n    Name = iif(SrcUsername contains \"@\", tostring(split(SrcUsername, '@', 0)[0]), SrcUsername),\n    UPNSuffix = iif(SrcUsername contains \"@\", tostring(split(SrcUsername, '@', 1)[0]), \"\"), Threshold=threshold",
+  "nl": "This detection mechanism identifies situations where multiple server errors originate from a single source within a limited time frame.",
+  "logic_correctness_verdict": "FAIL",
+  "notes": "wrong table _Im_ServerError (does not exist in ASIM)"
+ },
+ {
+  "pair_id": "813ccf3b-0321-4622-b0bc-63518fd14454-original",
+  "system": "A",
+  "kql": "let UserAgentThreshold = 5;\nimWebSession\n| where EventType == 'HTTP' and EventResult != 'Failure'\n| summarize count() by SrcIpAddr, bin(TimeGenerated, 2m)\n| where count_ > UserAgentThreshold\n| extend UniqueUserAgents=dcount(UserAgent), MaxDuration=max(Duration)",
+  "ground_truth": "let threshold = 5; // Please update threshold limit as per your environment\n_Im_WebSession(starttime=ago(1h), eventresult=\"Success\")\n| where isnotempty(HttpUserAgent)\n| summarize\n    EventCount=count(),\n    UserAgentList=make_set(HttpUserAgent, 100),\n    URL_List = make_set(Url, 100),\n    DestinationIPList = make_set(DstIpAddr, 100)\n    by SrcIpAddr, SrcUsername, SrcHostname, bin(TimeGenerated, 5min)\n| extend UserAgentCount = array_length(UserAgentList)\n| where UserAgentCount > threshold\n| extend Name = iif(SrcUsername contains \"@\", tostring(split(SrcUsername,'@',0)[0]),SrcUsername), UPNSuffix = iif(SrcUsername contains \"@\",tostring(split(SrcUsername,'@',1)[0]),\"\"), Threshold=threshold",
+  "nl": "This detection mechanism identifies requests originating from a single source within a brief time period that exhibit multiple user agents. Such behavior could indicate unusual web browsing activities performed by unconventional processes",
+  "logic_correctness_verdict": "FAIL",
+  "notes": "wrong aggregation: counts events not distinct user agents (the actual ask)"
+ },
+ {
+  "pair_id": "c99cf650-c53b-4c4c-9671-7d7500191a10-casual",
+  "system": "A",
+  "kql": "let BeaconThreshold = 1;\n_Im_Dns\n| where isnotempty(DstDomain) \n    and DstDomainType == 'domain'\n| summarize FileCount=count() by SrcIpAddr, bin(TimeGenerated, 5m), make_set(DstDomain)\n| where FileCount > BeaconThreshold\n| join kind=inner (\n    _Im_Dns\n    | where isnotempty(FileContentType) \n        and DstDomainType == 'domain'\n    | summarize count() by SrcIpAddr, bin(TimeGenerated, 5m), make_set(DstDomain)\n    ) on SrcIpAddr, TimeGenerated, make_set(DstDomain)\n| where FileCount > BeaconThreshold",
+  "ground_truth": "let lookback = 1d;\nlet scriptExtensions = dynamic([\".php\", \".aspx\", \".asp\", \".cfml\", \".py\", \".sh\", \".bash\", \".pl\"]);\n//The number of URI's seen to be suspicious, higher = less likely to be suspicious\nlet uriThreshold = 1;\nlet ReqestCountThreshold = 10; // set minimum requests count to confirm repetitive connections\n// Only look at connections that were allowed through the web proxy\n_Im_WebSession (starttime=ago(lookback), eventresult='Success')\n| project\n    SrcBytes,\n    DstBytes,\n    Url,\n    TimeGenerated,\n    DstIpAddr,\n    SrcIpAddr,\n    HttpRequestMethod,\n    HttpReferrer\n| where not(ipv4_is_private(DstIpAddr)) // Only take traffic going to internet\n| extend DestHostName = tostring(parse_url(Url)[\"Host\"])\n// Only look at connections where some data was exchanged.\n| where SrcBytes > 0 and DstBytes > 0\n// Extract Domain\n| extend Domain = iif(countof(DestHostName, '.') >= 2, strcat(split(DestHostName, '.')[-2], '.', split(DestHostName, '.')[-1]), DestHostName)\n| extend GetData = iff(Url contains \"?\", 1, 0)\n| summarize\n    EventStartTime = min(TimeGenerated),\n    EventEndTime = max(TimeGenerated),\n    make_set(Url, 100),\n    make_set(DstIpAddr, 100),\n    make_set(SrcIpAddr, 100),\n    EventCount = count(),\n    make_set(HttpRequestMethod, 10),\n    max(GetData),\n    max(HttpReferrer)\n    by Domain\n// Determine the number of URIs that have been visited for the domain\n| extend destinationURICount = array_length(set_Url)\n| where destinationURICount <= uriThreshold and EventCount > ReqestCountThreshold // check for repetitive requests for single resource only.\n| where tostring(set_Url) has_any(scriptExtensions)\n//Remove matches with referer\n| where max_HttpReferrer == \"\"\n//Keep requests where data was transferred either in a GET with parameters or a POST\n| where set_HttpRequestMethod in~ (\"POST\") or max_GetData == 1\n//Defeat email click tracking, may increase FN's while decreasing FP's\n| where set_Url !has \"click\" and set_HttpRequestMethod !has \"GET\"\n| mv-expand set_Url, set_DstIpAddr, set_SrcIpAddr\n| extend\n    RequestURL = tostring(set_Url),\n    DestinationIP = tostring(set_DstIpAddr),\n    SourceIP = tostring(set_SrcIpAddr)\n| project\n    EventStartTime,\n    EventEndTime,\n    SourceIP,\n    DestinationIP,\n    EventCount,\n    RequestURL,\n    set_HttpRequestMethod",
+  "nl": "find domains where we only ever request exactly one file, over and over \u2014 classic beacon or tracker pattern",
+  "logic_correctness_verdict": "FAIL",
+  "notes": "wrong table _Im_Dns for a web-request/URI pattern (should be WebSession)"
+ },
+ {
+  "pair_id": "c99cf650-c53b-4c4c-9671-7d7500191a10-sop",
+  "system": "B",
+  "kql": "imWebSession\n| summarize AggregatedValue = dcount()\n    by DstDomain, bin(TimeGenerated, 1d)\n| where AggregatedValue == 1",
+  "ground_truth": "let lookback = 1d;\nlet scriptExtensions = dynamic([\".php\", \".aspx\", \".asp\", \".cfml\", \".py\", \".sh\", \".bash\", \".pl\"]);\n//The number of URI's seen to be suspicious, higher = less likely to be suspicious\nlet uriThreshold = 1;\nlet ReqestCountThreshold = 10; // set minimum requests count to confirm repetitive connections\n// Only look at connections that were allowed through the web proxy\n_Im_WebSession (starttime=ago(lookback), eventresult='Success')\n| project\n    SrcBytes,\n    DstBytes,\n    Url,\n    TimeGenerated,\n    DstIpAddr,\n    SrcIpAddr,\n    HttpRequestMethod,\n    HttpReferrer\n| where not(ipv4_is_private(DstIpAddr)) // Only take traffic going to internet\n| extend DestHostName = tostring(parse_url(Url)[\"Host\"])\n// Only look at connections where some data was exchanged.\n| where SrcBytes > 0 and DstBytes > 0\n// Extract Domain\n| extend Domain = iif(countof(DestHostName, '.') >= 2, strcat(split(DestHostName, '.')[-2], '.', split(DestHostName, '.')[-1]), DestHostName)\n| extend GetData = iff(Url contains \"?\", 1, 0)\n| summarize\n    EventStartTime = min(TimeGenerated),\n    EventEndTime = max(TimeGenerated),\n    make_set(Url, 100),\n    make_set(DstIpAddr, 100),\n    make_set(SrcIpAddr, 100),\n    EventCount = count(),\n    make_set(HttpRequestMethod, 10),\n    max(GetData),\n    max(HttpReferrer)\n    by Domain\n// Determine the number of URIs that have been visited for the domain\n| extend destinationURICount = array_length(set_Url)\n| where destinationURICount <= uriThreshold and EventCount > ReqestCountThreshold // check for repetitive requests for single resource only.\n| where tostring(set_Url) has_any(scriptExtensions)\n//Remove matches with referer\n| where max_HttpReferrer == \"\"\n//Keep requests where data was transferred either in a GET with parameters or a POST\n| where set_HttpRequestMethod in~ (\"POST\") or max_GetData == 1\n//Defeat email click tracking, may increase FN's while decreasing FP's\n| where set_Url !has \"click\" and set_HttpRequestMethod !has \"GET\"\n| mv-expand set_Url, set_DstIpAddr, set_SrcIpAddr\n| extend\n    RequestURL = tostring(set_Url),\n    DestinationIP = tostring(set_DstIpAddr),\n    SourceIP = tostring(set_SrcIpAddr)\n| project\n    EventStartTime,\n    EventEndTime,\n    SourceIP,\n    DestinationIP,\n    EventCount,\n    RequestURL,\n    set_HttpRequestMethod",
+  "nl": "Over a 1-day window, for outbound connections to public IPs with data exchanged in both directions, identify destination domains where exactly one distinct URI was requested but with at least 10 total requests to it \u2014 a pattern typical of beaconing or tracking pixels.",
+  "logic_correctness_verdict": "FAIL",
+  "notes": "degenerate dcount() with no argument, would not execute"
+ },
+ {
+  "pair_id": "43c2832e-6c01-4dc1-bd9e-bc3f330c2b31-original",
+  "system": "A",
+  "kql": "let Threshold = 10;\n_Im_Http(statuscode=403)\n| where HttpStatusCode == 403 and EventResult != 'Success'\n| summarize count() by SrcIpAddr, bin(TimeGenerated, 5m)\n| where count_ > Threshold",
+  "ground_truth": "// Please refer this for more details: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status\nlet threshold=100; // Update threshold as per your environment\nlet lookBack = 1d;\nlet ErrorCode=dynamic([403]);\n_Im_WebSession(starttime=ago(lookBack))\n| where EventResultDetails in~ (ErrorCode)\n| summarize ErrorCount = count(), EventStartTime= min(TimeGenerated), EventEndTime=max(TimeGenerated), Urls=make_set(Url,100) by SrcIpAddr, SrcUsername, SrcHostname, DstIpAddr\n| where ErrorCount > threshold\n| extend Name = iif(SrcUsername contains \"@\", tostring(split(SrcUsername,'@',0)[0]),SrcUsername), UPNSuffix = iif(SrcUsername contains \"@\",tostring(split(SrcUsername,'@',1)[0]),\"\")\n| order by ErrorCount desc\n| extend IP_0_Address = SrcIpAddr\n| extend IP_1_Address = DstIpAddr\n| extend Host_0_HostName = SrcHostname\n| extend Account_0_Name = Name\n| extend Account_0_UPNSuffix = UPNSuffix",
+  "nl": "This rule detects abnormal number of 403 errors from clients. HTTP 403 is returned when the client is not permitted access to the resource despite providing authentication in case such as when authenticated account not having sufficient permissions",
+  "logic_correctness_verdict": "FAIL",
+  "notes": "wrong table _Im_Http (does not exist in ASIM)"
+ },
+ {
+  "pair_id": "43c2832e-6c01-4dc1-bd9e-bc3f330c2b31-sop",
+  "system": "A",
+  "kql": "let threshold = 100;\n_Im_HttpStatusCode(statuscode=403)\n| where isnotempty(HttpStatusCode) and HttpStatusCode == 'Forbidden'\n| summarize count() by SrcIpAddr, bin(TimeGenerated, 1d)\n| where count_ > threshold",
+  "ground_truth": "// Please refer this for more details: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status\nlet threshold=100; // Update threshold as per your environment\nlet lookBack = 1d;\nlet ErrorCode=dynamic([403]);\n_Im_WebSession(starttime=ago(lookBack))\n| where EventResultDetails in~ (ErrorCode)\n| summarize ErrorCount = count(), EventStartTime= min(TimeGenerated), EventEndTime=max(TimeGenerated), Urls=make_set(Url,100) by SrcIpAddr, SrcUsername, SrcHostname, DstIpAddr\n| where ErrorCount > threshold\n| extend Name = iif(SrcUsername contains \"@\", tostring(split(SrcUsername,'@',0)[0]),SrcUsername), UPNSuffix = iif(SrcUsername contains \"@\",tostring(split(SrcUsername,'@',1)[0]),\"\")\n| order by ErrorCount desc\n| extend IP_0_Address = SrcIpAddr\n| extend IP_1_Address = DstIpAddr\n| extend Host_0_HostName = SrcHostname\n| extend Account_0_Name = Name\n| extend Account_0_UPNSuffix = UPNSuffix",
+  "nl": "Over a 1-day window, alert when a single source IP/user/host combination generates more than 100 HTTP 403 Forbidden responses.",
+  "logic_correctness_verdict": "FAIL",
+  "notes": "wrong table _Im_HttpStatusCode (does not exist in ASIM)"
+ }
+]

@@ -13,7 +13,7 @@ class BaselineRunner:
     """
 
     def __init__(self, model_name: str | None = None, temperature: float = 0.0):
-        model_name = model_name or os.getenv("IR_BUILDER_LLM_MODEL", os.getenv("DEFAULT_LLM_MODEL", "qwen2.5:7b-instruct"))
+        model_name = model_name or os.getenv("IR_BUILDER_LLM_MODEL", os.getenv("DEFAULT_LLM_MODEL", "qwen3.5:4b"))
         self.llm = build_chat_model(model_name, temperature)
         self.chain = BASELINE_PROMPT | self.llm
 

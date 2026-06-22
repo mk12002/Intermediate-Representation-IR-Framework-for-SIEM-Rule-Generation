@@ -1,0 +1,202 @@
+[
+ {
+  "rule_id": "c094384d-7ea7-4091-83be-18706ecca981",
+  "tier": "simple",
+  "success": false,
+  "attempts_used": null,
+  "reason": "MAX_REPAIR_ATTEMPTS_EXCEEDED",
+  "ir": null,
+  "kql": null,
+  "ground_truth_kql": "let minersDomains=dynamic([\"monerohash.com\", \"do-dear.com\", \"xmrminerpro.com\", \"secumine.net\", \"xmrpool.com\", \"minexmr.org\", \"hashanywhere.com\", \n\"xmrget.com\", \"mininglottery.eu\", \"minergate.com\", \"moriaxmr.com\", \"multipooler.com\", \"moneropools.com\", \"xmrpool.eu\", \"coolmining.club\", \n\"supportxmr.com\", \"minexmr.com\", \"hashvault.pro\", \"xmrpool.net\", \"crypto-pool.fr\", \"xmr.pt\", \"miner.rocks\", \"walpool.com\", \"herominers.com\", \n\"gntl.co.uk\", \"semipool.com\", \"coinfoundry.org\", \"cryptoknight.cc\", \"fairhash.org\", \"baikalmine.com\", \"tubepool.xyz\", \"fairpool.xyz\", \"asiapool.io\", \n\"coinpoolit.webhop.me\", \"nanopool.org\", \"moneropool.com\", \"miner.center\", \"prohash.net\", \"poolto.be\", \"cryptoescrow.eu\", \"monerominers.net\", \"cryptonotepool.org\", \n\"extrmepool.org\", \"webcoin.me\", \"kippo.eu\", \"hashinvest.ws\", \"monero.farm\", \"supportxmr.com\", \"xmrpool.eu\", \"linux-repository-updates.com\", \"1gh.com\", \n\"dwarfpool.com\", \"hash-to-coins.com\", \"hashvault.pro\", \"pool-proxy.com\", \"hashfor.cash\", \"fairpool.cloud\", \"litecoinpool.org\", \"mineshaft.ml\", \"abcxyz.stream\", \n\"moneropool.ru\", \"cryptonotepool.org.uk\", \"extremepool.org\", \"extremehash.com\", \"hashinvest.net\", \"unipool.pro\", \"crypto-pools.org\", \"monero.net\", \n\"backup-pool.com\", \"mooo.com\", \"freeyy.me\", \"cryptonight.net\", \"shscrypto.net\"]);\n_Im_Dns(domain_has_any=minersDomains)\n| extend HostName = tostring(split(Dvc, \".\")[0]), DomainIndex = toint(indexof(Dvc, '.'))\n| extend HostNameDomain = iff(DomainIndex != -1, substring(Dvc, DomainIndex + 1), Dvc)\n| project-away DomainIndex"
+ },
+ {
+  "rule_id": "3fe3c520-04f1-44b8-8398-782ed21435f8",
+  "tier": "simple",
+  "success": false,
+  "attempts_used": null,
+  "reason": "MAX_REPAIR_ATTEMPTS_EXCEEDED",
+  "ir": {
+   "event_type": "DnsEvent",
+   "filters": [
+    {
+     "field": "actors",
+     "operator": "==",
+     "value": [
+      "IP addresses"
+     ]
+    }
+   ],
+   "aggregation": null,
+   "group_by": null,
+   "threshold": null,
+   "time_window": null,
+   "output_fields": [
+    "ASIM"
+   ]
+  },
+  "kql": null,
+  "ground_truth_kql": "let torProxies=dynamic([\"tor2web.org\", \"tor2web.com\", \"torlink.co\", \"onion.to\", \"onion.ink\", \"onion.cab\", \"onion.nu\", \"onion.link\", \n\"onion.it\", \"onion.city\", \"onion.direct\", \"onion.top\", \"onion.casa\", \"onion.plus\", \"onion.rip\", \"onion.dog\", \"tor2web.fi\", \n\"tor2web.blutmagie.de\", \"onion.sh\", \"onion.lu\", \"onion.pet\", \"t2w.pw\", \"tor2web.ae.org\", \"tor2web.io\", \"tor2web.xyz\", \"onion.lt\", \n\"s1.tor-gateways.de\", \"s2.tor-gateways.de\", \"s3.tor-gateways.de\", \"s4.tor-gateways.de\", \"s5.tor-gateways.de\", \"hiddenservice.net\"]);\n_Im_Dns(domain_has_any=torProxies)\n| extend HostName = tostring(split(Dvc, \".\")[0]), DomainIndex = toint(indexof(Dvc, '.'))\n| extend HostNameDomain = iff(DomainIndex != -1, substring(Dvc, DomainIndex + 1), Dvc)\n| project-away DomainIndex"
+ },
+ {
+  "rule_id": "bc5ffe2a-84d6-48fe-bc7b-1055100469bc",
+  "tier": "simple",
+  "success": true,
+  "attempts_used": 3,
+  "reason": null,
+  "ir": {
+   "event_type": "FileEvent",
+   "filters": [
+    {
+     "field": "FilePath",
+     "operator": "==",
+     "value": [
+      "5d763e948201f4c3bfaa2dccefcdddfbfbcfeeb"
+     ]
+    },
+    {
+     "field": "ActorUserId",
+     "operator": "in",
+     "value": [
+      "SUPERNOVA",
+      "SUNBURST"
+     ]
+    }
+   ],
+   "aggregation": null,
+   "group_by": null,
+   "threshold": null,
+   "time_window": null,
+   "output_fields": [
+    "FilePath",
+    "ActorUserId"
+   ]
+  },
+  "kql": "imFileEvent\n| where FilePath == (\"5d763e948201f4c3bfaa2dccefcdddfbfbcfeeb\")\n| where ActorUserId in (\"SUPERNOVA\", \"SUNBURST\")\n| project FilePath, ActorUserId",
+  "ground_truth_kql": "let SunburstMD5=dynamic([\"b91ce2fa41029f6955bff20079468448\",\"02af7cec58b9a5da1c542b5a32151ba1\",\"2c4a910a1299cdae2a4e55988a2f102e\",\"846e27a652a5e1bfbd0ddd38a16dc865\",\"4f2eb62fa529c0283b28d05ddd311fae\"]);\nlet SupernovaMD5=\"56ceb6d0011d87b6e4d7023d7ef85676\";\nimFileEvent\n| where TargetFileMD5 in (SunburstMD5) or TargetFileMD5 in (SupernovaMD5)\n| extend AccountName = tostring(split(User, @'\\')[1]), AccountNTDomain = tostring(split(User, @'\\')[0])\n| extend AlgorithmType = \"MD5\""
+ },
+ {
+  "rule_id": "45076281-35ae-45e0-b443-c32aa0baf965",
+  "tier": "simple",
+  "success": false,
+  "attempts_used": null,
+  "reason": "MAX_REPAIR_ATTEMPTS_EXCEEDED",
+  "ir": null,
+  "kql": null,
+  "ground_truth_kql": "let args = dynamic([\"objectcategory\",\"domainlist\",\"dcmodes\",\"adinfo\",\"trustdmp\",\"computers_pwdnotreqd\",\"Domain Admins\", \"objectcategory=person\", \"objectcategory=computer\", \"objectcategory=*\",\"dclist\"]);\nlet parentProcesses = dynamic([\"pwsh.exe\",\"powershell.exe\",\"cmd.exe\"]);\nimProcessCreate\n//looks for execution from a shell\n| where ActingProcessName has_any (parentProcesses)\n| extend ActingProcessFileName = tostring(split(ActingProcessName, '\\\\')[-1])\n| where ActingProcessFileName in~ (parentProcesses)\n// main filter\n| where Process hassuffix \"AdFind.exe\" or TargetProcessSHA256 == \"c92c158d7c37fea795114fa6491fe5f145ad2f8c08776b18ae79db811e8e36a3\"\n// AdFind common Flags to check for from various threat actor TTPs\nor CommandLine has_any (args)\n| extend AlgorithmType = \"SHA256\"\n| extend AccountName = tostring(split(User, @'\\')[1]), AccountNTDomain = tostring(split(User, @'\\')[0])\n| extend HostName = tostring(split(Dvc, \".\")[0]), DomainIndex = toint(indexof(Dvc, '.'))\n| extend HostNameDomain = iff(DomainIndex != -1, substring(Dvc, DomainIndex + 1), Dvc)\n| project-away DomainIndex"
+ },
+ {
+  "rule_id": "0dd2a343-4bf9-4c93-a547-adf3658ddaec",
+  "tier": "moderate",
+  "success": false,
+  "attempts_used": null,
+  "reason": "MAX_REPAIR_ATTEMPTS_EXCEEDED",
+  "ir": null,
+  "kql": null,
+  "ground_truth_kql": "let known_processes = (\n  imProcess\n  // Change these values if adjusting Query Frequency or Query Period\n  | where TimeGenerated between(ago(14d)..ago(1d))\n  | where Process has_any (\"Policies\\\\{6AC1786C-016F-11D2-945F-00C04fB984F9}\", \"Policies\\\\{31B2F340-016D-11D2-945F-00C04FB984F9}\")\n  | summarize by Process);\n  imProcess\n  // Change these values if adjusting Query Frequency or Query Period\n  | where TimeGenerated > ago(1d)\n  | where Process has_any (\"Policies\\\\{6AC1786C-016F-11D2-945F-00C04fB984F9}\", \"Policies\\\\{31B2F340-016D-11D2-945F-00C04FB984F9}\")\n  | where Process !in (known_processes)\n  | summarize FirstSeen=min(TimeGenerated), LastSeen=max(TimeGenerated) by Process, CommandLine, DvcHostname\n  | extend HostName = tostring(split(DvcHostname, \".\")[0]), DomainIndex = toint(indexof(DvcHostname, '.'))\n  | extend HostNameDomain = iff(DomainIndex != -1, substring(DvcHostname, DomainIndex + 1), DvcHostname)\n  | project-away DomainIndex"
+ },
+ {
+  "rule_id": "a1bddaf8-982b-4089-ba9e-6590dfcf80ea",
+  "tier": "moderate",
+  "success": false,
+  "attempts_used": null,
+  "reason": "MAX_REPAIR_ATTEMPTS_EXCEEDED",
+  "ir": {
+   "event_type": "AuthenticationEvent",
+   "filters": [
+    {
+     "field": "HTTP Response Code",
+     "operator": ">=",
+     "value": 403
+    },
+    {
+     "field": "Actor Source Type",
+     "operator": "in",
+     "value": [
+      "Web Service"
+     ]
+    }
+   ],
+   "aggregation": null,
+   "group_by": [
+    "Authentication Method"
+   ],
+   "threshold": {
+    "operator": ">=",
+    "value": 10
+   },
+   "time_window": null,
+   "output_fields": [
+    "HTTP Response Code",
+    "Authentication Method"
+   ]
+  },
+  "kql": null,
+  "ground_truth_kql": "let error403_count_threshold=200;\n_Im_WebSession(eventresultdetails_in=dynamic([\"403\"]))\n| extend ParsedUrl=parse_url(Url)\n| extend UrlHost=tostring(ParsedUrl[\"Host\"]), UrlSchema=tostring(ParsedUrl[\"Schema\"])\n| summarize StartTime = min(TimeGenerated), EndTime = max(TimeGenerated), NumberOfErrors = count(), Urls=makeset(Url) by UrlHost, SrcIpAddr\n| where NumberOfErrors > error403_count_threshold\n| sort by NumberOfErrors desc\n| extend Url=tostring(Urls[0])"
+ },
+ {
+  "rule_id": "5b8344eb-fa28-4ac3-bcff-bc19d5d63089",
+  "tier": "moderate",
+  "success": false,
+  "attempts_used": null,
+  "reason": "MAX_REPAIR_ATTEMPTS_EXCEEDED",
+  "ir": null,
+  "kql": null,
+  "ground_truth_kql": "let lookback=1h;\nlet threshold = 2;\nlet errors = dynamic(['NXDOMAIN', 'SERVFAIL', 'REFUSED']); \n_Im_Dns(starttime=ago(lookback)) \n  | where EventResultDetails has_any (errors) \n  | summarize SrcIPs = make_set(SrcIpAddr, 100), Dvcs = make_set(Dvc, 100), ResourceIds = make_set(_ResourceId, 100) by DnsQuery, bin(TimeGenerated, 10min) \n  | where array_length(SrcIPs) >= threshold \n  | extend TotalIPs = array_length(SrcIPs),IPCountthreshold = threshold \n  | extend DomainName = strcat(split(DnsQuery, \".\")[1], \".\", split(DnsQuery, \".\")[2])  \n  | mv-expand SrcIPs  \n  | extend SrcIP = tostring(SrcIPs)  \n  | mv-expand Dvcs  \n  | extend Dvc = tostring(Dvcs)  \n  | mv-expand ResourceIds  \n  | extend ResourceId = tostring(ResourceIds)  \n  | extend Dvc = strcat(split(Dvc, \".\")[0])\n  | summarize Start=min(TimeGenerated), End=max(TimeGenerated) by SrcIP, Dvc, ResourceId, DnsQuery, DomainName, SrcIPs = tostring(SrcIPs), IPCountthreshold = threshold, TotalIPs\n  | extend HostName = tostring(split(Dvc, \".\")[0]), DomainIndex = toint(indexof(Dvc, '.'))\n  | extend HostNameDomain = iff(DomainIndex != -1, substring(Dvc, DomainIndex + 1), Dvc)"
+ },
+ {
+  "rule_id": "09ec8fa2-b25f-4696-bfae-05a7b85d7b9e",
+  "tier": "complex",
+  "success": false,
+  "attempts_used": null,
+  "reason": "MAX_REPAIR_ATTEMPTS_EXCEEDED",
+  "ir": {
+   "event_type": "AuthenticationEvent",
+   "filters": [
+    {
+     "field": "ActorUserId",
+     "operator": "==",
+     "value": 1
+    },
+    {
+     "field": "countries",
+     "operator": "in",
+     "value": [
+      "different_countries"
+     ]
+    }
+   ],
+   "aggregation": null,
+   "group_by": [
+    "users"
+   ],
+   "threshold": null,
+   "time_window": "within 3 hours",
+   "output_fields": [
+    "successful_user_logins",
+    "countries"
+   ]
+  },
+  "kql": null,
+  "ground_truth_kql": "let timeframe = ago(3h);\nlet threshold = 2;\nimAuthentication\n| where TimeGenerated > timeframe\n| where EventType == 'Logon'\n    and EventResult == 'Success'\n| where isnotempty(SrcGeoCountry)\n| summarize\n    StartTime        = min(TimeGenerated)\n    , EndTime        = max(TimeGenerated)\n    , Vendors        = make_set(EventVendor, 128)\n    , Products       = make_set(EventProduct, 128)\n    , NumOfCountries = dcount(SrcGeoCountry)\n    , Countries      = make_set(SrcGeoCountry, 128)\n    by TargetUserId, TargetUsername, TargetUserType\n| where NumOfCountries >= threshold\n| where TargetUserType !in (\"Application\", \"Service\", \"System\", \"Other\", \"Machine\", \"ServicePrincipal\")\n| extend\n  Name = iif(\n      TargetUsername contains \"@\"\n          , tostring(split(TargetUsername, '@', 0)[0])\n          , TargetUsername\n      ),\n  UPNSuffix = iif(\n      TargetUsername contains \"@\"\n      , tostring(split(TargetUsername, '@', 1)[0])\n      , \"\"\n  )"
+ },
+ {
+  "rule_id": "c3b11fb2-9201-4844-b7b9-6b7bf6d9b851",
+  "tier": "complex",
+  "success": false,
+  "attempts_used": null,
+  "reason": "MAX_REPAIR_ATTEMPTS_EXCEEDED",
+  "ir": null,
+  "kql": null,
+  "ground_truth_kql": "let threshold = 200;\n_Im_Dns(responsecodename='NXDOMAIN')\n| where isnotempty(DnsResponseCodeName)\n//| where DnsResponseCodeName =~ \"NXDOMAIN\"\n| summarize count() by SrcIpAddr, bin(TimeGenerated,15m)\n| where count_ > threshold\n| join kind=inner (_Im_Dns(responsecodename='NXDOMAIN')\n    ) on SrcIpAddr"
+ },
+ {
+  "rule_id": "983a6922-894d-413c-9f04-d7add0ecc307",
+  "tier": "complex",
+  "success": false,
+  "attempts_used": null,
+  "reason": "MAX_REPAIR_ATTEMPTS_EXCEEDED",
+  "ir": null,
+  "kql": null,
+  "ground_truth_kql": "let referencestarttime = 10d;\nlet referenceendtime = 1d;\nlet threshold = 100;\nlet nxDomainDnsEvents = (stime:datetime, etime:datetime) \n  {_Im_Dns(responsecodename='NXDOMAIN', starttime=stime, endtime=etime)\n  | where DnsQueryTypeName in (\"A\", \"AAAA\")\n  | where ipv4_is_match(\"127.0.0.1\", SrcIpAddr) == False\n  | where DnsQuery !contains \"/\" and  DnsQuery contains \".\"};\nnxDomainDnsEvents (stime=ago(referenceendtime) ,etime=now())\n  | extend sld = tostring(split(DnsQuery, \".\")[-2])\n  | summarize StartTime = min(TimeGenerated), EndTime = max(TimeGenerated), dcount(sld) by SrcIpAddr\n  | where dcount_sld > threshold\n  // Filter out previously seen IPs\n  | join kind=leftanti (nxDomainDnsEvents (stime=ago(referencestarttime), etime=ago(referenceendtime))\n    | extend sld = tostring(split(DnsQuery, \".\")[-2])\n    | summarize dcount(sld) by SrcIpAddr\n    | where dcount_sld > threshold ) on SrcIpAddr\n// Pull out sample NXDomain responses for those remaining potentially infected IPs\n| join kind = inner (nxDomainDnsEvents (stime=ago(referencestarttime), etime=now()) | summarize by DnsQuery, SrcIpAddr) on SrcIpAddr\n| summarize StartTime = min(StartTime), EndTime = max(EndTime), sampleNXDomainList=make_list(DnsQuery, 100)  by SrcIpAddr, dcount_sld"
+ }
+]

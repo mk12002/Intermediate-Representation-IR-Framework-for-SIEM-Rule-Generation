@@ -2,10 +2,13 @@ import logging
 from dataclasses import dataclass
 from typing import Optional
 
+from langchain_core.exceptions import OutputParserException
+from pydantic import ValidationError
+
 from src.agents.ir_builder_agent import IRBuilderAgent
 from src.generator.compiler import generate_kql
 from src.ir_engine.ir_schema import ExtractionOutput, SecurityIR
-from src.ir_engine.ir_validator import validate_ir
+from src.ir_engine.ir_validator import ValidationResult, validate_ir
 from src.validation.syntax_validators import validate_kql_syntax
 
 logger = logging.getLogger(__name__)
@@ -27,6 +30,25 @@ def log_template_bug(ir: SecurityIR, kql: str, syntax_validation) -> None:
     )
 
 
+def _build_ir(ir_builder, extraction, asim_field_list, repair_error=None, previous_ir=None):
+    """Wraps the IR Builder Agent call so a malformed-but-structurally-close
+    LLM completion (valid JSON that fails Pydantic's own type validation,
+    e.g. a null where a typed value is required) is treated as a repairable
+    validation failure rather than an uncaught exception — consistent with
+    "every validator failure should produce a structured, actionable error."
+    Returns (ir_or_None, ValidationResult_or_None).
+    """
+    try:
+        ir = ir_builder.build(extraction, asim_field_list, repair_error=repair_error, previous_ir=previous_ir)
+        return ir, None
+    except (OutputParserException, ValidationError) as e:
+        return None, ValidationResult(
+            passed=False,
+            error_type="LLM_OUTPUT_PARSE_FAILURE",
+            message=f"model output failed to parse into a valid SecurityIR object: {e}",
+        )
+
+
 def run_with_repair(
     extraction: ExtractionOutput,
     asim_schema: dict,
@@ -41,14 +63,14 @@ def run_with_repair(
     docs/NL-KQL/architecture.md#the-repair-loop.
     """
     asim_field_list = asim_schema[extraction.likely_event_type]["fields"] if extraction.likely_event_type in asim_schema else []
-    ir = ir_builder.build(extraction, asim_field_list)
-    repair_error = None
+    ir, build_error = _build_ir(ir_builder, extraction, asim_field_list)
 
     for attempt in range(max_attempts):
-        ir_validation = validate_ir(ir, asim_schema)
+        ir_validation = build_error if build_error is not None else validate_ir(ir, asim_schema)
         if not ir_validation.passed:
-            repair_error = ir_validation
-            ir = ir_builder.build(extraction, asim_field_list, repair_error=repair_error, previous_ir=ir)
+            ir, build_error = _build_ir(
+                ir_builder, extraction, asim_field_list, repair_error=ir_validation, previous_ir=ir
+            )
             continue
 
         kql = generate_kql(ir)

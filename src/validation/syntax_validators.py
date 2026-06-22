@@ -6,13 +6,25 @@ from typing import Optional
 # check covering the operator subset this project's templates and System A's
 # baseline actually produce (where/summarize/project/bin), not full KQL
 # grammar coverage. See docs/NL-KQL/MASTER_PLAN.md §23.
-_VALID_CLAUSE_KEYWORDS = {"where", "summarize", "project", "extend", "join", "bin", "order", "sort", "top", "render", "union", "extend"}
-_LEADING_CLAUSE = re.compile(r"^\s*(\w+)\b")
+_VALID_CLAUSE_KEYWORDS = {
+    "where", "summarize", "project", "project-away", "extend", "join", "bin",
+    "order", "sort", "top", "render", "union", "mv-expand", "mvexpand",
+    "parse", "evaluate", "lookup", "make-series", "invoke", "getschema",
+    "distinct", "serialize", "find", "as", "project-rename", "project-reorder",
+    "take", "limit", "sample", "count", "scan", "fork", "partition",
+}
+_LEADING_CLAUSE = re.compile(r"^\s*([\w-]+)\b")
 _LET_STATEMENT = re.compile(r"^\s*let\s+\w+\s*=")
-_SQL_SPL_LEAKAGE = re.compile(r"\b(SELECT|GROUP\s+BY|FROM|stats\s+count)\b", re.IGNORECASE)
-_SINGLE_EQUALS_COMPARISON = re.compile(r"(?<![=!<>])=(?!=)(?!\s*=)")
+_SQL_SPL_LEAKAGE = re.compile(r"\b(SELECT|GROUP\s+BY|stats\s+count)\b", re.IGNORECASE)
+_SINGLE_EQUALS_COMPARISON = re.compile(r"(?<![=!<>])=(?!=)(?!~)(?!\s*=)")
 _LINE_COMMENT = re.compile(r"//.*$")
-_STRING_LITERAL = re.compile(r"'(?:[^'\\]|\\.)*'|\"(?:[^\"\\]|\\.)*\"")
+# KQL verbatim strings (@'...'/@"...") don't escape backslashes — a lone
+# trailing `\` before the closing quote is literal, not an escape introducer.
+# Must be matched before the regular escaped-string alternatives, otherwise
+# the regular pattern's `\\.` over-consumes past the real closing quote.
+_STRING_LITERAL = re.compile(
+    r"@'[^']*'|@\"[^\"]*\"|'(?:[^'\\]|\\.)*'|\"(?:[^\"\\]|\\.)*\""
+)
 
 
 def strip_comments_and_strings(kql: str) -> str:

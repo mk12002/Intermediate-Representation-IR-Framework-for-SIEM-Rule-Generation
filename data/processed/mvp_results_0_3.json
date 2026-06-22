@@ -1,0 +1,56 @@
+[
+ {
+  "rule_id": "c094384d-7ea7-4091-83be-18706ecca981",
+  "tier": "simple",
+  "success": true,
+  "attempts_used": 3,
+  "reason": null,
+  "ir": {
+   "event_type": "DnsEvent",
+   "filters": [],
+   "aggregation": null,
+   "group_by": null,
+   "threshold": null,
+   "time_window": null,
+   "output_fields": []
+  },
+  "kql": "imDns",
+  "ground_truth_kql": "let minersDomains=dynamic([\"monerohash.com\", \"do-dear.com\", \"xmrminerpro.com\", \"secumine.net\", \"xmrpool.com\", \"minexmr.org\", \"hashanywhere.com\", \n\"xmrget.com\", \"mininglottery.eu\", \"minergate.com\", \"moriaxmr.com\", \"multipooler.com\", \"moneropools.com\", \"xmrpool.eu\", \"coolmining.club\", \n\"supportxmr.com\", \"minexmr.com\", \"hashvault.pro\", \"xmrpool.net\", \"crypto-pool.fr\", \"xmr.pt\", \"miner.rocks\", \"walpool.com\", \"herominers.com\", \n\"gntl.co.uk\", \"semipool.com\", \"coinfoundry.org\", \"cryptoknight.cc\", \"fairhash.org\", \"baikalmine.com\", \"tubepool.xyz\", \"fairpool.xyz\", \"asiapool.io\", \n\"coinpoolit.webhop.me\", \"nanopool.org\", \"moneropool.com\", \"miner.center\", \"prohash.net\", \"poolto.be\", \"cryptoescrow.eu\", \"monerominers.net\", \"cryptonotepool.org\", \n\"extrmepool.org\", \"webcoin.me\", \"kippo.eu\", \"hashinvest.ws\", \"monero.farm\", \"supportxmr.com\", \"xmrpool.eu\", \"linux-repository-updates.com\", \"1gh.com\", \n\"dwarfpool.com\", \"hash-to-coins.com\", \"hashvault.pro\", \"pool-proxy.com\", \"hashfor.cash\", \"fairpool.cloud\", \"litecoinpool.org\", \"mineshaft.ml\", \"abcxyz.stream\", \n\"moneropool.ru\", \"cryptonotepool.org.uk\", \"extremepool.org\", \"extremehash.com\", \"hashinvest.net\", \"unipool.pro\", \"crypto-pools.org\", \"monero.net\", \n\"backup-pool.com\", \"mooo.com\", \"freeyy.me\", \"cryptonight.net\", \"shscrypto.net\"]);\n_Im_Dns(domain_has_any=minersDomains)\n| extend HostName = tostring(split(Dvc, \".\")[0]), DomainIndex = toint(indexof(Dvc, '.'))\n| extend HostNameDomain = iff(DomainIndex != -1, substring(Dvc, DomainIndex + 1), Dvc)\n| project-away DomainIndex"
+ },
+ {
+  "rule_id": "3fe3c520-04f1-44b8-8398-782ed21435f8",
+  "tier": "simple",
+  "success": true,
+  "attempts_used": 3,
+  "reason": null,
+  "ir": {
+   "event_type": "DnsEvent",
+   "filters": [],
+   "aggregation": null,
+   "group_by": null,
+   "threshold": null,
+   "time_window": null,
+   "output_fields": []
+  },
+  "kql": "imDns",
+  "ground_truth_kql": "let torProxies=dynamic([\"tor2web.org\", \"tor2web.com\", \"torlink.co\", \"onion.to\", \"onion.ink\", \"onion.cab\", \"onion.nu\", \"onion.link\", \n\"onion.it\", \"onion.city\", \"onion.direct\", \"onion.top\", \"onion.casa\", \"onion.plus\", \"onion.rip\", \"onion.dog\", \"tor2web.fi\", \n\"tor2web.blutmagie.de\", \"onion.sh\", \"onion.lu\", \"onion.pet\", \"t2w.pw\", \"tor2web.ae.org\", \"tor2web.io\", \"tor2web.xyz\", \"onion.lt\", \n\"s1.tor-gateways.de\", \"s2.tor-gateways.de\", \"s3.tor-gateways.de\", \"s4.tor-gateways.de\", \"s5.tor-gateways.de\", \"hiddenservice.net\"]);\n_Im_Dns(domain_has_any=torProxies)\n| extend HostName = tostring(split(Dvc, \".\")[0]), DomainIndex = toint(indexof(Dvc, '.'))\n| extend HostNameDomain = iff(DomainIndex != -1, substring(Dvc, DomainIndex + 1), Dvc)\n| project-away DomainIndex"
+ },
+ {
+  "rule_id": "bc5ffe2a-84d6-48fe-bc7b-1055100469bc",
+  "tier": "simple",
+  "success": true,
+  "attempts_used": 3,
+  "reason": null,
+  "ir": {
+   "event_type": "FileEvent",
+   "filters": [],
+   "aggregation": null,
+   "group_by": null,
+   "threshold": null,
+   "time_window": null,
+   "output_fields": null
+  },
+  "kql": "imFileEvent",
+  "ground_truth_kql": "let SunburstMD5=dynamic([\"b91ce2fa41029f6955bff20079468448\",\"02af7cec58b9a5da1c542b5a32151ba1\",\"2c4a910a1299cdae2a4e55988a2f102e\",\"846e27a652a5e1bfbd0ddd38a16dc865\",\"4f2eb62fa529c0283b28d05ddd311fae\"]);\nlet SupernovaMD5=\"56ceb6d0011d87b6e4d7023d7ef85676\";\nimFileEvent\n| where TargetFileMD5 in (SunburstMD5) or TargetFileMD5 in (SupernovaMD5)\n| extend AccountName = tostring(split(User, @'\\')[1]), AccountNTDomain = tostring(split(User, @'\\')[0])\n| extend AlgorithmType = \"MD5\""
+ }
+]

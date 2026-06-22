@@ -1,0 +1,77 @@
+[
+  {
+    "rule_id": "61988db3-0565-49b5-b8e3-747195baac6e",
+    "casual": "check for malware hiding in the recycle bin folder, running via common LOLBins like cmd/ftp/schtasks/powershell/rundll32/regsvr32/msiexec",
+    "sop_imperative": "If a known living-off-the-land binary (cmd.exe, ftp.exe, schtasks.exe, powershell.exe, rundll32.exe, regsvr32.exe, or msiexec.exe) is executed with a command line referencing the recycler folder, flag it as potential malware hidden in the recycle bin."
+  },
+  {
+    "rule_id": "5b6ae038-f66e-4f74-9315-df52fd492be4",
+    "casual": "flag sdelete-style file wiping even if the attacker renamed the tool to dodge detection",
+    "sop_imperative": "Alert when a process is run with the command-line flags accepteula, -s, -r, and -q together, and the process is not literally named sdelete.exe — this indicates Sysinternals sdelete being used to recursively wipe files via a renamed binary."
+  },
+  {
+    "rule_id": "bd89c7a0-76cb-4fa1-bc64-c366687cda9e",
+    "casual": "give me a rundown of what scripts are running via cscript across the environment",
+    "sop_imperative": "Summarize all cscript.exe executions across the environment by extracted script name and parameters, for situational awareness of script usage."
+  },
+  {
+    "rule_id": "7b3ed03a-7474-4dad-9c6a-92e7b69f6584",
+    "casual": "catch someone running net user or net group with the /domain flag to snoop on accounts",
+    "sop_imperative": "Alert when the built-in net.exe utility is invoked with 'user' or 'group' arguments together with a /do or /domain flag, indicating enumeration of domain users or groups."
+  },
+  {
+    "rule_id": "4500a2ff-455b-4ee7-a21d-5ac5c7c9ea87",
+    "casual": "somebody exported an Exchange mailbox then deleted the export within an hour — that's suspicious",
+    "sop_imperative": "If a host issues a New-MailboxExportRequest followed by a Remove-MailboxExportRequest for the same user within a 1-hour window, raise an alert for potential email exfiltration cover-up."
+  },
+  {
+    "rule_id": "4e3af8e3-a29f-4eec-ac25-55517dca6512",
+    "casual": "show me the rarest processes that just started showing up for the first time — works best looking back 3+ days",
+    "sop_imperative": "Compute process execution frequency over the lookback window (recommended 3 or more days) and surface processes falling at or below the 5th percentile of frequency, after excluding common randomly-named installer temp files."
+  },
+  {
+    "rule_id": "365a889c-ae0f-461d-bdf1-d6ce11d0ef6f",
+    "casual": "hunt for rundll32 being used to sneak code execution past defenses",
+    "sop_imperative": "Surface all rundll32.exe execution events for manual review of potential signed-binary proxy execution."
+  },
+  {
+    "rule_id": "c4956c0b-4527-406c-b135-ef44002e1e70",
+    "casual": "look for DNS beaconing — same time gap between queries over and over is a C2 tell",
+    "sop_imperative": "Over the period from 2 days ago to 1 day ago, identify source IPs whose DNS query inter-arrival time exceeds 10 seconds, repeats at least 15 times, where the single most common time-delta accounts for at least 80% of occurrences — indicative of beaconing."
+  },
+  {
+    "rule_id": "b35f6633-0d18-494c-a5e4-2828daf442bf",
+    "casual": "who are the top 25 noisiest clients erroring out on DNS today",
+    "sop_imperative": "Over the last 24 hours, rank source IPs by count of non-NOERROR DNS responses and return the top 25."
+  },
+  {
+    "rule_id": "8717e498-7b5d-4e23-9e7c-fa4913dbfd79",
+    "casual": "flag hosts whose SMB traffic just spiked way past their normal baseline",
+    "sop_imperative": "Using a 14-day baseline (ending 1 day ago) of average SMB (ports 139/445) connection counts per private-IP source/port pair, flag sources in the most recent 1-day window whose connection count exceeds the baseline average by more than 50."
+  },
+  {
+    "rule_id": "a61e9fc1-dd9e-4588-a497-2a34a1d811bf",
+    "casual": "catch traffic where the app doesn't match its usual port — like DNS not running on port 53",
+    "sop_imperative": "Flag sessions where the destination application is DNS, web-browsing/HTTP, SSL, or SMTP but the destination port does not match that application's standard port(s) — a possible spoofing or evasion indicator."
+  },
+  {
+    "rule_id": "a59ba76c-0205-4966-948e-3d5640140688",
+    "casual": "a single source throwing more than 100 server errors in an hour is a problem",
+    "sop_imperative": "Within a 1-hour window, alert when a single source IP generates more than 100 HTTP 5xx server error responses."
+  },
+  {
+    "rule_id": "813ccf3b-0321-4622-b0bc-63518fd14454",
+    "casual": "one IP cycling through more than 5 different user agents in an hour is weird",
+    "sop_imperative": "Within a 1-hour window, alert when a single source IP generates successful web requests using more than 5 distinct HTTP User-Agent strings."
+  },
+  {
+    "rule_id": "c99cf650-c53b-4c4c-9671-7d7500191a10",
+    "casual": "find domains where we only ever request exactly one file, over and over — classic beacon or tracker pattern",
+    "sop_imperative": "Over a 1-day window, for outbound connections to public IPs with data exchanged in both directions, identify destination domains where exactly one distinct URI was requested but with at least 10 total requests to it — a pattern typical of beaconing or tracking pixels."
+  },
+  {
+    "rule_id": "43c2832e-6c01-4dc1-bd9e-bc3f330c2b31",
+    "casual": "more than 100 403 errors from one client in a day means something's repeatedly trying and failing to get in",
+    "sop_imperative": "Over a 1-day window, alert when a single source IP/user/host combination generates more than 100 HTTP 403 Forbidden responses."
+  }
+]

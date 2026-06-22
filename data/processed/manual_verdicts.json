@@ -1,0 +1,567 @@
+[
+ {
+  "rule_id": "09ec8fa2-b25f-4696-bfae-05a7b85d7b9e",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "c3b11fb2-9201-4844-b7b9-6b7bf6d9b851",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "983a6922-894d-413c-9f04-d7add0ecc307",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "c094384d-7ea7-4091-83be-18706ecca981",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "3fe3c520-04f1-44b8-8398-782ed21435f8",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "bc5ffe2a-84d6-48fe-bc7b-1055100469bc",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "45076281-35ae-45e0-b443-c32aa0baf965",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "f8b3c49c-4087-499b-920f-0dcfaff0cbca",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "61988db3-0565-49b5-b8e3-747195baac6e",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "bdf04f58-242b-4729-b376-577c4bdf5d3a",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "631d02df-ab51-46c1-8d72-32d0cfec0720",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "0dd2a343-4bf9-4c93-a547-adf3658ddaec",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "5b6ae038-f66e-4f74-9315-df52fd492be4",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "30c8b802-ace1-4408-bc29-4c5c5afb49e1",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "a1bddaf8-982b-4089-ba9e-6590dfcf80ea",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "ac9e233e-44d4-45eb-b522-6e47445f6582",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "3169dc83-9e97-452c-afcc-baebdb0ddf7c",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "28233666-c235-4d55-b456-5cfdda29d62d",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "bd89c7a0-76cb-4fa1-bc64-c366687cda9e",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "7b3ed03a-7474-4dad-9c6a-92e7b69f6584",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "9ccb1859-7a79-4a8a-a382-fa54d4dace47",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "4500a2ff-455b-4ee7-a21d-5ac5c7c9ea87",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "a2b58512-1298-4a25-a4c7-88ddfed78b0d",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "3a8e307b-5037-4182-a4e2-e76d99cecab8",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "374a40ba-73fc-4d70-95ac-524b5765ffa2",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "4846436d-5183-4a33-a975-fc892ffea91d",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "93a4ed6c-83e6-4202-8df4-e340dbd20a38",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "01e8ffff-dc0c-43fe-aa22-d459c4204553",
+  "verdict": "discard",
+  "notes": "description claims callout-server seen-only-once uniqueness filter; query never implements such a filter (no dcount_Url==1 or first-seen check) \u2014 description/logic mismatch"
+ },
+ {
+  "rule_id": "24e66452-2aaa-455f-b0c6-a0d8216bbe79",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "c3f1606e-48eb-464e-a60c-d53af5a5796e",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "1eacb645-9354-49cd-8872-8d68a4fd3f59",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "4e3af8e3-a29f-4eec-ac25-55517dca6512",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "614a59c5-2dae-4430-bb16-951a28a5f05f",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "365a889c-ae0f-461d-bdf1-d6ce11d0ef6f",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "6cb193f3-7c6d-4b53-9153-49a09be830d7",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "cd8d946d-10a4-40a9-bac1-6d0a6c847d65",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "4ab8b09e-3c23-4974-afbe-7e653779eb2b",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "5b8344eb-fa28-4ac3-bcff-bc19d5d63089",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "89ba52fa-96a7-4653-829a-ca49bb13336c",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "0fe6bde4-b215-480c-99b4-84a96edcdbd7",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "77b7c820-5f60-4779-8bdb-f06e21add5f1",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "0a8f5777-f38a-4c37-b531-411bdecef976",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "4717929b-121d-4d90-b7ba-e3259ef16aca",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "5366b848-0886-439f-b312-0b94bb687d06",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "b31b5d70-4c75-4a5f-8af7-6a83f6eb372c",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "74e8773c-dfa9-45ca-bb60-5d767303e5b3",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "c4956c0b-4527-406c-b135-ef44002e1e70",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "50b0dfb7-2c94-4eaf-a332-a5936d78c263",
+  "verdict": "discard",
+  "notes": "description claims top-4-domains limiting; query has no top-N clause (make_set(EventResult,4) caps SET size per group, not result rows) \u2014 returns all matching domains, not top 4"
+ },
+ {
+  "rule_id": "b35f6633-0d18-494c-a5e4-2828daf442bf",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "4c8d6412-5a48-42c3-8b5e-1f29fb15c749",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "d9e1646c-dc17-4150-ac85-581f5c9cb41f",
+  "verdict": "discard",
+  "notes": "description is a bare vendor/IOC-type label (\"Google Threat Intelligence X correlation.\") with zero behavioral detail \u2014 technically not contradicted by the query, but useless as an NL translation target; fails rubric item 2 in spirit"
+ },
+ {
+  "rule_id": "8f9cd0e5-b4ab-4821-95e2-1082fcd784c7",
+  "verdict": "discard",
+  "notes": "description is a bare vendor/IOC-type label (\"Google Threat Intelligence X correlation.\") with zero behavioral detail \u2014 technically not contradicted by the query, but useless as an NL translation target; fails rubric item 2 in spirit"
+ },
+ {
+  "rule_id": "7edb2abb-7ef7-4685-92eb-a628703ccf9f",
+  "verdict": "discard",
+  "notes": "description is a bare vendor/IOC-type label (\"Google Threat Intelligence X correlation.\") with zero behavioral detail \u2014 technically not contradicted by the query, but useless as an NL translation target; fails rubric item 2 in spirit"
+ },
+ {
+  "rule_id": "89290690-54c4-4196-91c5-d32b1df5d873",
+  "verdict": "discard",
+  "notes": "description is a bare vendor/IOC-type label (\"Google Threat Intelligence X correlation.\") with zero behavioral detail \u2014 technically not contradicted by the query, but useless as an NL translation target; fails rubric item 2 in spirit"
+ },
+ {
+  "rule_id": "34288e97-5194-4f2e-abf2-c2783189f6ae",
+  "verdict": "discard",
+  "notes": "description is a bare vendor/IOC-type label (\"Google Threat Intelligence X correlation.\") with zero behavioral detail \u2014 technically not contradicted by the query, but useless as an NL translation target; fails rubric item 2 in spirit"
+ },
+ {
+  "rule_id": "0051a0d9-684f-4317-abbd-c1e5c24b39cb",
+  "verdict": "discard",
+  "notes": "description is a bare vendor/IOC-type label (\"Google Threat Intelligence X correlation.\") with zero behavioral detail \u2014 technically not contradicted by the query, but useless as an NL translation target; fails rubric item 2 in spirit"
+ },
+ {
+  "rule_id": "faa83502-2763-49ae-9216-e576fa1fdccb",
+  "verdict": "discard",
+  "notes": "description is a bare vendor/IOC-type label (\"Google Threat Intelligence X correlation.\") with zero behavioral detail \u2014 technically not contradicted by the query, but useless as an NL translation target; fails rubric item 2 in spirit"
+ },
+ {
+  "rule_id": "a1705fa5-c904-4f1b-9e2d-a4ccb30377a2",
+  "verdict": "discard",
+  "notes": "description is a bare vendor/IOC-type label (\"Google Threat Intelligence X correlation.\") with zero behavioral detail \u2014 technically not contradicted by the query, but useless as an NL translation target; fails rubric item 2 in spirit"
+ },
+ {
+  "rule_id": "8717e498-7b5d-4e23-9e7c-fa4913dbfd79",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "4902eddb-34f7-44a8-ac94-8486366e9494",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "1da9853f-3dea-4ea9-b7e5-26730da3d537",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "fcb9d75c-c3c1-4910-8697-f136bfef2363",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "b7dc801e-1e79-48bb-91e8-2229a8e6d40b",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "73c803aa-1188-45dd-8379-62a3319d3d9f",
+  "verdict": "discard",
+  "notes": "uses ASimAlertEvent schema (Bitdefender GravityZone) \u2014 out of this project scope (only 7 ASIM event types implemented in the IR: Authentication/NetworkSession/Process/File/Dns/WebSession/Registry)"
+ },
+ {
+  "rule_id": "cd8faa84-4464-4b4e-96dc-b22f50c27541",
+  "verdict": "discard",
+  "notes": "description claims \"port scanned by multiple external sources\" but query groups by SrcIpAddr+DstPortNumber counting distinct DstIpAddr \u2014 implements \"one source touching many destinations on a port\", the opposite direction from the description"
+ },
+ {
+  "rule_id": "5dca6047-24ed-4eb7-b44e-ec7f1bf42621",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "cbe10c58-e96b-4827-853e-5c1f22fdcc74",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "a61e9fc1-dd9e-4588-a497-2a34a1d811bf",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "96f9fdd1-bb5b-4d32-8790-666457dc00c0",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "6fd69768-fdf1-4cfd-805f-b243be3f0c6d",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "acbf7ef6-f964-44c3-9031-7834ec68175f",
+  "verdict": "discard",
+  "notes": "description is a bare vendor/IOC-type label (\"Google Threat Intelligence X correlation.\") with zero behavioral detail \u2014 technically not contradicted by the query, but useless as an NL translation target; fails rubric item 2 in spirit"
+ },
+ {
+  "rule_id": "6db6a8e6-2959-440b-ba57-a505875fcb37",
+  "verdict": "discard",
+  "notes": "description is a bare vendor/IOC-type label (\"Google Threat Intelligence X correlation.\") with zero behavioral detail \u2014 technically not contradicted by the query, but useless as an NL translation target; fails rubric item 2 in spirit"
+ },
+ {
+  "rule_id": "e31bc14e-2b4c-42a4-af34-5bfd7d768aea",
+  "verdict": "discard",
+  "notes": "description is a bare vendor/IOC-type label (\"Google Threat Intelligence X correlation.\") with zero behavioral detail \u2014 technically not contradicted by the query, but useless as an NL translation target; fails rubric item 2 in spirit"
+ },
+ {
+  "rule_id": "1ecde866-dc99-4f46-91b1-0a17f32939b0",
+  "verdict": "discard",
+  "notes": "Microsoft Summary Rule \u2014 unions dozens of vendor-specific raw parser sub-tables for cost-optimization pre-aggregation, no detection threshold/condition; not detection logic in the sense this IR models"
+ },
+ {
+  "rule_id": "25ed500d-4f8a-46ec-a6d9-8624d204830f",
+  "verdict": "discard",
+  "notes": "Microsoft Summary Rule \u2014 unions dozens of vendor-specific raw parser sub-tables for cost-optimization pre-aggregation, no detection threshold/condition; not detection logic in the sense this IR models"
+ },
+ {
+  "rule_id": "df824ce9-0fc0-46e0-9919-e4b075f6127e",
+  "verdict": "discard",
+  "notes": "Microsoft Summary Rule \u2014 unions dozens of vendor-specific raw parser sub-tables for cost-optimization pre-aggregation, no detection threshold/condition; not detection logic in the sense this IR models"
+ },
+ {
+  "rule_id": "c5a4f3e9-e577-4db0-94f2-87d497b40bcd",
+  "verdict": "discard",
+  "notes": "Microsoft Summary Rule \u2014 unions dozens of vendor-specific raw parser sub-tables for cost-optimization pre-aggregation, no detection threshold/condition; not detection logic in the sense this IR models"
+ },
+ {
+  "rule_id": "a31660b8-b5a1-4b0e-9341-b9b132efa9a7",
+  "verdict": "discard",
+  "notes": "Microsoft Summary Rule \u2014 unions dozens of vendor-specific raw parser sub-tables for cost-optimization pre-aggregation, no detection threshold/condition; not detection logic in the sense this IR models"
+ },
+ {
+  "rule_id": "81337036-2a9c-4677-a426-f2fbd79c346f",
+  "verdict": "discard",
+  "notes": "Microsoft Summary Rule \u2014 unions dozens of vendor-specific raw parser sub-tables for cost-optimization pre-aggregation, no detection threshold/condition; not detection logic in the sense this IR models"
+ },
+ {
+  "rule_id": "1347d3bc-080a-49bf-a1f0-b430a5fa6475",
+  "verdict": "discard",
+  "notes": "Microsoft Summary Rule \u2014 unions dozens of vendor-specific raw parser sub-tables for cost-optimization pre-aggregation, no detection threshold/condition; not detection logic in the sense this IR models"
+ },
+ {
+  "rule_id": "cc8aeea6-07a2-430a-808e-41ad5b91f08d",
+  "verdict": "discard",
+  "notes": "Microsoft Summary Rule \u2014 unions dozens of vendor-specific raw parser sub-tables for cost-optimization pre-aggregation, no detection threshold/condition; not detection logic in the sense this IR models"
+ },
+ {
+  "rule_id": "30716301-35c5-4f2b-9b55-2df178797b86",
+  "verdict": "discard",
+  "notes": "Microsoft Summary Rule \u2014 unions dozens of vendor-specific raw parser sub-tables for cost-optimization pre-aggregation, no detection threshold/condition; not detection logic in the sense this IR models"
+ },
+ {
+  "rule_id": "3f6f0d1a-f2f9-4e01-881a-c55a4a71905b",
+  "verdict": "discard",
+  "notes": "description is a bare vendor/IOC-type label (\"Google Threat Intelligence X correlation.\") with zero behavioral detail \u2014 technically not contradicted by the query, but useless as an NL translation target; fails rubric item 2 in spirit"
+ },
+ {
+  "rule_id": "d641a534-ead8-41aa-a7c8-2b35e6b64c9f",
+  "verdict": "discard",
+  "notes": "description is a bare vendor/IOC-type label (\"Google Threat Intelligence X correlation.\") with zero behavioral detail \u2014 technically not contradicted by the query, but useless as an NL translation target; fails rubric item 2 in spirit"
+ },
+ {
+  "rule_id": "905da21a-c7d2-4f5b-b8fc-c8321da3ee83",
+  "verdict": "discard",
+  "notes": "description is a bare vendor/IOC-type label (\"Google Threat Intelligence X correlation.\") with zero behavioral detail \u2014 technically not contradicted by the query, but useless as an NL translation target; fails rubric item 2 in spirit"
+ },
+ {
+  "rule_id": "7b5eb44d-3533-440e-9774-73a4d99bc2b2",
+  "verdict": "discard",
+  "notes": "description is a bare vendor/IOC-type label (\"Google Threat Intelligence X correlation.\") with zero behavioral detail \u2014 technically not contradicted by the query, but useless as an NL translation target; fails rubric item 2 in spirit"
+ },
+ {
+  "rule_id": "dbc2438a-0d16-4890-aaae-cbe0dc433b08",
+  "verdict": "discard",
+  "notes": "description is a bare vendor/IOC-type label (\"Google Threat Intelligence X correlation.\") with zero behavioral detail \u2014 technically not contradicted by the query, but useless as an NL translation target; fails rubric item 2 in spirit"
+ },
+ {
+  "rule_id": "afa4cb9e-6fec-4742-a17f-f494b54c01e7",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "7c1ea2e6-6210-412c-92e4-180803a741b4",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "b306fba8-1a28-449f-aa24-30362e16d4f5",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "54f4ceb4-fd83-4633-b5b0-c0de9feb8890",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "0548be6c-135e-4eb6-b9ff-14a09df62c77",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "3b4a8c72-5a2e-4f1e-b61a-9d8b2a6d7a21",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "faa40333-1e8b-40cc-a003-51ae41fa886f",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "a59ba76c-0205-4966-948e-3d5640140688",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "813ccf3b-0321-4622-b0bc-63518fd14454",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "27f1a570-5f20-496b-88f6-a9aa2c5c9534",
+  "verdict": "discard",
+  "notes": "uses vendor-specific ASimNetworkSessionSonicWallFirewall parser function, not the generic unifying ASIM table this project models"
+ },
+ {
+  "rule_id": "dedb8fb9-3caa-4b00-ae88-1898eed78917",
+  "verdict": "discard",
+  "notes": "same \u2014 vendor-specific SonicWall parser function"
+ },
+ {
+  "rule_id": "92e8e945-6e99-4e4b-bef8-468b4c19fc3a",
+  "verdict": "discard",
+  "notes": "uses ASimAuditEventLogs schema \u2014 out of this project scope (only 7 ASIM event types implemented)"
+ },
+ {
+  "rule_id": "6a71687f-00cf-44d3-93fc-8cbacc7b5615",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "b3731ce1-1f04-47c4-95c2-9827408c4375",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "e3a7722a-e099-45a9-9afb-6618e8f05405",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "c99cf650-c53b-4c4c-9671-7d7500191a10",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "7d2ed1c7-da26-45fd-b4ea-b6f2bbeccea7",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "69e53015-a309-4a8f-a94d-df61a9217e2f",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "43c2832e-6c01-4dc1-bd9e-bc3f330c2b31",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "e8adb0d9-c4fa-4557-97d0-cb9e221a63b2",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "05f5cccd-ee93-4293-b7ad-05820aaa54a4",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "8ece8108-7bf7-4571-8f32-ebfd92a6b1ad",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "75929222-fee5-4f97-a2cc-cb6f29444385",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "6338ca43-ae7c-4a91-9fe4-0f1ad4edf4a5",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "b653c2e0-ae0f-490b-9b2e-836858d28976",
+  "verdict": "keep",
+  "notes": ""
+ },
+ {
+  "rule_id": "6e813653-df72-4b14-954e-5619d1b6d586",
+  "verdict": "keep",
+  "notes": ""
+ }
+]

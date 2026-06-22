@@ -17,7 +17,12 @@ or guess field names from general knowledge of similar platforms.
 ASIM field reference for {likely_event_type}:
 {asim_field_list}
 
-{format_instructions}"""
+{format_instructions}
+
+Return ONLY one JSON object that is a valid INSTANCE of this schema —
+actual field values describing this specific detection, never the schema
+definition itself (no "$defs", "properties", or "required" keys in your
+output)."""
 
 _REPAIR_SYSTEM_PROMPT = """Your previous IR failed validation with the following error:
 {structured_validator_error}
@@ -31,14 +36,18 @@ Previous IR:
 ASIM field reference for {likely_event_type}:
 {asim_field_list}
 
-{format_instructions}"""
+{format_instructions}
+
+Return ONLY one corrected JSON object that is a valid INSTANCE of this
+schema — actual field values, never the schema definition itself (no
+"$defs", "properties", or "required" keys in your output)."""
 
 
 class IRBuilderAgent(BaseAgent):
     """Second of System B's two generative steps — see docs/NL-KQL/architecture.md §11.2."""
 
     def __init__(self):
-        model_name = os.getenv("IR_BUILDER_LLM_MODEL", os.getenv("DEFAULT_LLM_MODEL", "qwen2.5:7b-instruct"))
+        model_name = os.getenv("IR_BUILDER_LLM_MODEL", os.getenv("DEFAULT_LLM_MODEL", "qwen3.5:4b"))
         super().__init__(model_name=model_name)
         self.build_prompt = ChatPromptTemplate.from_messages(
             [("system", _BUILD_SYSTEM_PROMPT), ("user", "{extraction_output}")]

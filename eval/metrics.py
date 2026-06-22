@@ -7,6 +7,27 @@ _TOKEN = re.compile(r"\b([A-Za-z_][A-Za-z0-9_]*)\b")
 _LET_BINDING = re.compile(r"\blet\s+(\w+)\s*=")
 _ASSIGNMENT_TARGET = re.compile(r"(?:summarize|extend|project|,)\s+(\w+)\s*=(?!=)")
 _TABLE_REFERENCE = re.compile(r"^\s*(_?\w+)")
+# Parser-call kwargs, e.g. _Im_Dns(responsecodename='NXDOMAIN', starttime=ago(1d))
+_PARSER_KWARG = re.compile(r"[(,]\s*([a-z][a-z0-9_]*)\s*=(?!=)")
+
+# Valid ASIM unifying-table name patterns (filtering `im*`/`_Im_*`, parameter-less
+# `ASim*`), one per event type this project's IR covers. A table reference
+# matching none of these is a hallucinated/non-ASIM table — MASTER_PLAN's FVR
+# definition explicitly includes "every referenced field/table", so this must
+# be checked, not skipped.
+_VALID_ASIM_TABLE_PATTERNS = [
+    re.compile(r"^(im|ASim|_Im_)Authentication$", re.IGNORECASE),
+    re.compile(r"^(im|ASim|_Im_)NetworkSession$", re.IGNORECASE),
+    re.compile(r"^(im|ASim|_Im_)Process(Create|Terminate|Event)?$", re.IGNORECASE),
+    re.compile(r"^(im|ASim|_Im_)FileEvent$", re.IGNORECASE),
+    re.compile(r"^(im|ASim|_Im_)Dns$", re.IGNORECASE),
+    re.compile(r"^(im|ASim|_Im_)WebSession$", re.IGNORECASE),
+    re.compile(r"^(im|ASim|_Im_)Registry(Event)?$", re.IGNORECASE),
+]
+
+
+def is_valid_asim_table(token: str) -> bool:
+    return any(p.match(token) for p in _VALID_ASIM_TABLE_PATTERNS)
 
 # KQL operators, functions, and literals that are never field names. Not
 # exhaustive of the language — scoped to what System A/B's outputs and the
@@ -28,14 +49,31 @@ _KQL_KEYWORDS = {
     "format_timespan", "totimespan", "geo_distance_2points", "ipv4_is_match",
     "ipv4_is_in_range", "parse_json", "bag_unpack", "mv-expand", "mv_expand",
     "materialize", "hint", "shuffle", "with", "step", "range", "series_decompose",
+    "hassuffix", "hasprefix", "notcontains", "matches", "regex", "away", "expand",
+    "mv", "leftanti", "rightouter", "fullouter", "anti", "semi", "between",
+    "ipv6_is_match", "geo_info_from_ip_address", "indexof_regex", "tostring_array",
 }
 
 
 def _known_local_names(query: str) -> set[str]:
-    """Names defined within the query itself — `let` bindings and
-    `summarize`/`extend` assignment aliases — which are correct, query-local
-    identifiers and not hallucinated schema fields."""
-    return set(_LET_BINDING.findall(query)) | set(_ASSIGNMENT_TARGET.findall(query))
+    """Names defined within the query itself — `let` bindings,
+    `summarize`/`extend` assignment aliases, and parser-call kwargs (e.g.
+    `responsecodename=` in `_Im_Dns(responsecodename='NXDOMAIN')`) — none of
+    which are schema fields."""
+    return (
+        set(_LET_BINDING.findall(query))
+        | set(_ASSIGNMENT_TARGET.findall(query))
+        | set(_PARSER_KWARG.findall(query))
+    )
+
+
+def extract_table_reference(query: str) -> str | None:
+    cleaned = strip_comments_and_strings(query)
+    body_lines = [l for l in cleaned.strip().splitlines() if l.strip() and not _LET_BINDING.match(l.strip())]
+    if not body_lines:
+        return None
+    table_match = _TABLE_REFERENCE.match(body_lines[0])
+    return table_match.group(1) if table_match else None
 
 
 def referenced_identifiers(query: str) -> set[str]:
@@ -45,11 +83,9 @@ def referenced_identifiers(query: str) -> set[str]:
     tokens -= _known_local_names(cleaned)
     tokens = {t for t in tokens if not t.isdigit()}
 
-    body_lines = [l for l in cleaned.strip().splitlines() if l.strip() and not _LET_BINDING.match(l.strip())]
-    if body_lines:
-        table_match = _TABLE_REFERENCE.match(body_lines[0])
-        if table_match:
-            tokens.discard(table_match.group(1))
+    table_ref = extract_table_reference(query)
+    if table_ref:
+        tokens.discard(table_ref)
     return tokens
 
 
@@ -62,14 +98,17 @@ def syntax_validity_rate(generated_queries: list[str]) -> float:
 
 
 def field_validity_rate(generated_queries: list[str], known_fields: set[str]) -> float:
-    """FVR — fraction of queries where every referenced field/table identifier
-    exists in the ASIM schema. Excludes KQL keywords/functions, the query's own
-    `let`/assignment-alias locals, and the leading table reference, none of
-    which are schema fields."""
+    """FVR — fraction of queries where every referenced field exists in the
+    ASIM schema AND the source table is a real ASIM unifying table (not a
+    hallucinated one, e.g. "_Im_ServerError"). Excludes KQL keywords/functions
+    and the query's own `let`/assignment-alias locals from the field check."""
     if not generated_queries:
         return 0.0
     valid = 0
     for q in generated_queries:
+        table_ref = extract_table_reference(q)
+        if table_ref is None or not is_valid_asim_table(table_ref):
+            continue
         if referenced_identifiers(q) <= known_fields:
             valid += 1
     return valid / len(generated_queries)
