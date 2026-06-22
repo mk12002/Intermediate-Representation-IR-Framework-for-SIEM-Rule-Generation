@@ -1,34 +1,35 @@
-from pydantic import BaseModel, Field
-from typing import List, Literal
-from .base_agent import BaseAgent
+import os
+
 from langchain_core.prompts import ChatPromptTemplate
 
-class Entity(BaseModel):
-    category: Literal["user", "process", "file", "network", "hostname", "ip_address", "hash"]
-    value: str
-    context: str = Field(description="Why is this entity relevant?")
+from src.ir_engine.ir_schema import ExtractionOutput
 
-class ExtractedEntities(BaseModel):
-    entities: List[Entity]
+from .base_agent import BaseAgent
 
-class EntityExtractionAgent(BaseAgent):
+_SYSTEM_PROMPT = """You are a security analyst extracting structured signal from a
+natural language detection description. Do NOT guess at exact ASIM field
+names or KQL syntax — that happens in a later step. Your job is only to
+identify: the type of event being described, the actors involved, the
+core action/behavior, any threshold language (e.g. "many", "more than
+10"), any time-window language (e.g. "within five minutes",
+"repeatedly"), and field names you believe are relevant.
+
+{format_instructions}"""
+
+
+class ExtractionAgent(BaseAgent):
+    """First of System B's two generative steps — see docs/NL-KQL/architecture.md §11.1."""
+
     def __init__(self):
-        super().__init__()
-        self.prompt = ChatPromptTemplate.from_messages([
-            ("system", """Extract all concrete entities mentioned in the text. Map them strictly to the allowed categories.
-            
-Example:
-Input: The attacker used 192.168.1.1 to beacon out.
-Output: {{"entities": [{{"category": "ip_address", "value": "192.168.1.1", "context": "C2 beacon destination"}}]}}
-
-{format_instructions}"""),
-            ("user", "Text:\n{report_text}")
-        ])
-
-    def extract(self, report_text: str) -> dict:
-        result = self._execute_with_retry(
-            prompt=self.prompt,
-            pydantic_schema=ExtractedEntities,
-            input_data={"report_text": report_text}
+        model_name = os.getenv("EXTRACTION_LLM_MODEL", os.getenv("DEFAULT_LLM_MODEL", "qwen2.5:3b-instruct"))
+        super().__init__(model_name=model_name)
+        self.prompt = ChatPromptTemplate.from_messages(
+            [("system", _SYSTEM_PROMPT), ("user", "{nl_description}")]
         )
-        return {"entities": [e.model_dump() for e in result.entities]}
+
+    def extract(self, nl_description: str) -> ExtractionOutput:
+        return self._invoke(
+            prompt=self.prompt,
+            pydantic_schema=ExtractionOutput,
+            input_data={"nl_description": nl_description},
+        )

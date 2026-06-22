@@ -1,46 +1,61 @@
-import os
-from typing import Type, TypeVar, Any
-from pydantic import BaseModel, ValidationError
-from langchain_ollama import ChatOllama
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import PydanticOutputParser
-from langchain_core.exceptions import OutputParserException
 import logging
+import os
+from typing import Type, TypeVar
+
+from langchain_core.exceptions import OutputParserException
+from langchain_core.output_parsers import PydanticOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+from pydantic import BaseModel, ValidationError
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar('T', bound=BaseModel)
+T = TypeVar("T", bound=BaseModel)
+
+
+def build_chat_model(model_name: str, temperature: float):
+    """Provider is fixed once for the whole study (MASTER_PLAN §20) via LLM_PROVIDER.
+
+    Supported: "anthropic", "openai", "ollama" (local).
+    """
+    provider = os.getenv("LLM_PROVIDER", "ollama").lower()
+    if provider == "anthropic":
+        from langchain_anthropic import ChatAnthropic
+
+        return ChatAnthropic(model=model_name, temperature=temperature)
+    if provider == "openai":
+        from langchain_openai import ChatOpenAI
+
+        return ChatOpenAI(model=model_name, temperature=temperature)
+    if provider == "ollama":
+        from langchain_ollama import ChatOllama
+
+        return ChatOllama(
+            model=model_name,
+            temperature=temperature,
+            base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
+            format="json",
+        )
+    raise ValueError(f"unknown LLM_PROVIDER: {provider}")
+
 
 class BaseAgent:
-    def __init__(self, model_name: str = None, temperature: float = 0.0):
-        # Default to phi3 for fast extraction, override via env or param
-        self.model_name = model_name or os.getenv("FAST_LLM_MODEL", "phi3")
-        base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-        
-        self.llm = ChatOllama(
-            model=self.model_name,
-            temperature=temperature,
-            base_url=base_url,
-            format="json"  # Crucial for local SLMs to enforce JSON format
-        )
-        self.max_retries = 3
+    def __init__(self, model_name: str, temperature: float = 0.0):
+        self.model_name = model_name
+        self.llm = build_chat_model(model_name, temperature)
+        self.max_attempts = 3
 
-    def _execute_with_retry(self, prompt: ChatPromptTemplate, pydantic_schema: Type[T], input_data: dict) -> T:
+    def _invoke(self, prompt: ChatPromptTemplate, pydantic_schema: Type[T], input_data: dict) -> T:
         parser = PydanticOutputParser(pydantic_object=pydantic_schema)
-        
-        # Inject format instructions into the prompt dynamically
-        format_instructions = parser.get_format_instructions()
-        if "format_instructions" not in input_data:
-            input_data["format_instructions"] = format_instructions
-
+        input_data.setdefault("format_instructions", parser.get_format_instructions())
         chain = prompt | self.llm | parser
 
-        for attempt in range(self.max_retries):
+        for attempt in range(self.max_attempts):
             try:
-                result = chain.invoke(input_data)
-                return result
+                return chain.invoke(input_data)
             except (OutputParserException, ValidationError) as e:
-                logger.warning(f"Parse attempt {attempt + 1} failed for {self.__class__.__name__}: {str(e)}")
-                if attempt == self.max_retries - 1:
-                    logger.error("Max retries reached for JSON parsing.")
-                    raise e
+                logger.warning(
+                    "parse attempt %d/%d failed for %s: %s",
+                    attempt + 1, self.max_attempts, self.__class__.__name__, e,
+                )
+                if attempt == self.max_attempts - 1:
+                    raise

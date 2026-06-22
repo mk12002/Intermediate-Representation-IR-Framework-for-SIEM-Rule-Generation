@@ -1,0 +1,15 @@
+{{ asim_table_name }}
+{% for f in filters %}
+| where {{ f.field }} {{ f.operator.value }} {{ f.value | kql_literal }}
+{% endfor -%}
+{% if aggregation %}
+| summarize {{ aggregation.result_alias }} = {{ aggregation.function | kql_agg_fn }}({{ aggregation.field or "" }})
+    by {{ group_by | join(", ") }}{% if time_window %}, bin(TimeGenerated, {{ time_window | kql_duration }}){% endif %}
+
+{% endif -%}
+{% if threshold %}
+| where {{ aggregation.result_alias }} {{ threshold.operator.value }} {{ threshold.value }}
+{% endif -%}
+{% if output_fields %}
+| project {{ output_fields | join(", ") }}
+{% endif -%}

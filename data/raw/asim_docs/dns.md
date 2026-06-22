@@ -1,0 +1,125 @@
+### Source system fields
+| Field | Class |
+| --- | --- |
+| **Src** | Alias |
+| **SrcIpAddr** | Recommended |
+| **SrcPortNumber** | Optional |
+| **IpAddr** | Alias |
+| **SrcGeoCountry** | Optional |
+| **SrcGeoRegion** | Optional |
+| **SrcGeoCity** | Optional |
+| **SrcGeoLatitude** | Optional |
+| **SrcGeoLongitude** | Optional |
+| **SrcRiskLevel** | Optional |
+| **SrcOriginalRiskLevel** | Optional |
+| **SrcHostname** | Recommended |
+| **Hostname** | Alias |
+| **SrcDomain** | Recommended |
+| **SrcDomainType** | Conditional |
+| **SrcFQDN** | Optional |
+| **SrcDvcId** | Optional |
+| **SrcDvcScopeId** | Optional |
+| **SrcDvcScope** | Optional |
+| **SrcDvcIdType** | Conditional |
+| **SrcDeviceType** | Optional |
+| **SrcDescription** | Optional |
+
+### Source user fields
+| Field | Class |
+| --- | --- |
+| **SrcUserId** | Optional |
+| **SrcUserScope** | Optional |
+| **SrcUserScopeId** | Optional |
+| **SrcUserIdType** | Conditional |
+| **SrcUsername** | Optional |
+| **SrcUsernameType** | Conditional |
+| **User** | Alias |
+| **SrcUserType** | Optional |
+| **SrcUserSessionId** | Optional |
+| **SrcOriginalUserType** | Optional |
+
+### Source process fields
+| Field | Class |
+| --- | --- |
+| **SrcProcessName** | Optional |
+| **Process** | Alias |
+| **SrcProcessId** | Optional |
+| **SrcProcessGuid** | Optional |
+
+### Destination system fields
+| Field | Class |
+| --- | --- |
+| **Dst** | Alias |
+| **DstIpAddr** | Optional |
+| **DstGeoCountry** | Optional |
+| **DstGeoRegion** | Optional |
+| **DstGeoCity** | Optional |
+| **DstGeoLatitude** | Optional |
+| **DstGeoLongitude** | Optional |
+| **DstRiskLevel** | Optional |
+| **DstOriginalRiskLevel** | Optional |
+| **DstPortNumber** | Optional |
+| **DstHostname** | Optional |
+| **DstDomain** | Optional |
+| **DstDomainType** | Conditional |
+| **DstFQDN** | Optional |
+| **DstDvcId** | Optional |
+| **DstDvcScopeId** | Optional |
+| **DstDvcScope** | Optional |
+| **DstDvcIdType** | Conditional |
+| **DstDeviceType** | Optional |
+| **DstDescription** | Optional |
+
+### DNS specific fields
+| Field | Class |
+| --- | --- |
+| **DnsQuery** | Mandatory |
+| **Domain** | Alias |
+| **DnsQueryType** | Optional |
+| **DnsQueryTypeName** | Recommended |
+| **DnsResponseName** | Optional |
+| **DnsResponseCodeName** | Alias |
+| **DnsResponseCode** | Optional |
+| **TransactionIdHex** | Recommended |
+| **NetworkProtocol** | Optional |
+| **NetworkProtocolVersion** | Optional |
+| **DnsQueryClass** | Optional |
+| **DnsQueryClassName** | Recommended |
+| **DnsFlags** | Optional |
+| **DnsNetworkDuration** | Optional |
+| **Duration** | Alias |
+| **DnsFlagsAuthenticated** | Optional |
+| **DnsFlagsAuthoritative** | Optional |
+| **DnsFlagsCheckingDisabled** | Optional |
+| **DnsFlagsRecursionAvailable** | Optional |
+| **DnsFlagsRecursionDesired** | Optional |
+| **DnsFlagsTruncated** | Optional |
+| **DnsFlagsZ** | Optional |
+| **DnsSessionId** | Optional |
+| **SessionId** | Alias |
+| **DnsResponseIpCountry** | Optional |
+| **DnsResponseIpRegion** | Optional |
+| **DnsResponseIpCity** | Optional |
+| **DnsResponseIpLatitude** | Optional |
+| **DnsResponseIpLongitude** | Optional |
+
+### Inspection fields
+| Field | Class |
+| --- | --- |
+| **UrlCategory** | Optional |
+| **DomainCategory** | Alias |
+| **RuleName** | Optional |
+| **RuleNumber** | Optional |
+| **Rule** | Alias |
+| **ThreatId** | Optional |
+| **ThreatCategory** | Optional |
+| **ThreatIpAddr** | Optional |
+| **ThreatField** | Conditional |
+| **ThreatName** | Optional |
+| **ThreatConfidence** | Optional |
+| **ThreatOriginalConfidence** | Optional |
+| **ThreatRiskLevel** | Optional |
+| **ThreatOriginalRiskLevel** | Optional |
+| **ThreatIsActive** | Optional |
+| **ThreatFirstReportedTime** | Optional |
+| **ThreatLastReportedTime** | Optional |
