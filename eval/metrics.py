@@ -68,8 +68,23 @@ def _known_local_names(query: str) -> set[str]:
 
 
 def extract_table_reference(query: str) -> str | None:
+    """Find the main query's source table.
+
+    `;` is KQL's statement separator — any `let NAME = ...;` statement
+    (scalar, or a multi-line tabular subquery as used by a JoinStage)
+    precedes the main query and ends with `;`. Splitting on the *last* `;`
+    and looking only at what follows finds the main query regardless of how
+    many such statements come before it. Found live: the previous
+    line-by-line `_LET_BINDING`-skip only filtered lines that themselves
+    started with "let NAME =" — a multi-line let-bound subquery's
+    continuation lines (e.g. "| summarize ... by ...") were not let-bindings
+    themselves, so the first such continuation line was mistaken for the
+    main query's table reference, which doesn't match `_TABLE_REFERENCE`
+    (starts with "|"), making this return None — and therefore FVR
+    unconditionally 0 — for every query using a join/subquery."""
     cleaned = strip_comments_and_strings(query)
-    body_lines = [l for l in cleaned.strip().splitlines() if l.strip() and not _LET_BINDING.match(l.strip())]
+    main_segment = cleaned.split(";")[-1]
+    body_lines = [l for l in main_segment.strip().splitlines() if l.strip() and not _LET_BINDING.match(l.strip())]
     if not body_lines:
         return None
     table_match = _TABLE_REFERENCE.match(body_lines[0])

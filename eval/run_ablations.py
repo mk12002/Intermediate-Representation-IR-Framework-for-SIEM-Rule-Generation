@@ -33,7 +33,12 @@ def ablation_no_repair(pairs, asim_schema, extraction_agent, ir_builder):
     results = []
     for p in pairs:
         try:
-            r = run_system_b(p["nl_description"], asim_schema, extraction_agent, ir_builder, max_attempts=1)
+            # max_attempts=0, not 1: with the repair loop's off-by-one fix
+            # (every build is now validated, including the last), passing 1
+            # here would grant one genuine, validated repair attempt instead
+            # of measuring true zero-repair first-attempt success. 0 means
+            # exactly one build, checked once, never rebuilt.
+            r = run_system_b(p["nl_description"], asim_schema, extraction_agent, ir_builder, max_attempts=0)
             results.append({"pair_id": p["pair_id"], "success": r.success, "kql": r.kql})
         except Exception as e:
             logger.warning("no_repair ablation crashed on %s: %s", p["pair_id"], e)
@@ -45,7 +50,13 @@ def ablation_monolithic_extraction(pairs, asim_schema, monolithic_agent):
     results = []
     for p in pairs:
         try:
-            fields = asim_schema.get(p["asim_event_type"], {}).get("fields", [])
+            # Use union-fallback, same as repair_loop.py — falling back to []
+            # would silently reproduce the No-Schema-Grounding ablation (§1.4 item 14).
+            event_type_key = p.get("asim_event_type", "")
+            if event_type_key in asim_schema:
+                fields = asim_schema[event_type_key]["fields"]
+            else:
+                fields = sorted({f for event in asim_schema.values() for f in event["fields"]})
             ir = monolithic_agent.build(p["nl_description"], fields)
             validation = validate_ir(ir, asim_schema)
             kql = generate_kql(ir) if validation.passed else None

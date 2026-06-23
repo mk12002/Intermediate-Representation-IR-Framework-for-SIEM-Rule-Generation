@@ -1,0 +1,85 @@
+{
+  "scored_at": "2026-06-23",
+  "scored_by": "Claude (single rater, AI-assisted) — NOT independently human-reviewed",
+  "rubric": "event_type/table correct; comparison direction not inverted; aggregation/grouping matches intent. All three required to pass.",
+  "scope": "Restricted to the 15 System B successes whose ground truth is fully IR-expressible (no join, no cross-field OR, no multi-stage aggregation) out of 28 total successes on this run of eval/run_comparison.py. The other 13 successes are schema-valid simplifications of detections SecurityIR cannot fully represent and are excluded from this rubric, not scored as pass or fail.",
+  "supersedes": "logic_scoring_data.json (2/15, original Qwen3.5 run) and the informal §4B spot-checks (3/12, 12/18) in PROJECT_STATUS.md — both predate the output_fields validation fix and FilterGroup extension.",
+  "summary": {"pass": 9, "fail": 6, "total": 15, "rate": 0.6},
+  "verdicts": [
+    {
+      "pair_id": "61988db3-0565-49b5-b8e3-747195baac6e-original",
+      "verdict": "FAIL",
+      "notes": "Wrong event type: imFileEvent instead of imProcessCreate. GT detects LOLBin process execution with 'recycler' in the command line; System B checks FilePath instead, dropping the LOLBin process-list filter entirely."
+    },
+    {
+      "pair_id": "5b6ae038-f66e-4f74-9315-df52fd492be4-original",
+      "verdict": "FAIL",
+      "notes": "Inverted logic. GT detects sdelete's accepteula/-s/-r/-q flag combination specifically when the binary is NOT named sdelete.exe and 'sdelete' is NOT in the command line (the renamed-binary evasion case). System B requires 'sdelete' to be PRESENT, the opposite condition."
+    },
+    {
+      "pair_id": "5b6ae038-f66e-4f74-9315-df52fd492be4-casual",
+      "verdict": "FAIL",
+      "notes": "Wrong event type: imFileEvent instead of imProcessCreate. Same underlying detection as -original; same family of error, different specific manifestation."
+    },
+    {
+      "pair_id": "5b6ae038-f66e-4f74-9315-df52fd492be4-sop",
+      "verdict": "PASS",
+      "notes": "Correct event type and the core flag-combination check (accepteula, -s, -r, -q all required) plus the sdelete.exe filename exclusion. Missing the 'command line does not contain sdelete' exclusion, but the core technique is captured correctly."
+    },
+    {
+      "pair_id": "365a889c-ae0f-461d-bdf1-d6ce11d0ef6f-original",
+      "verdict": "PASS",
+      "notes": "Exact match to GT's actual active logic (the whitelist line in GT is commented out, so GT's real filter is just 'Process has rundll32.exe')."
+    },
+    {
+      "pair_id": "365a889c-ae0f-461d-bdf1-d6ce11d0ef6f-casual",
+      "verdict": "PASS",
+      "notes": "Same intent as GT; literal value 'rundll32' instead of 'rundll32.exe' is a minor literal-match risk but directionally correct."
+    },
+    {
+      "pair_id": "365a889c-ae0f-461d-bdf1-d6ce11d0ef6f-sop",
+      "verdict": "PASS",
+      "notes": "Exact match."
+    },
+    {
+      "pair_id": "a59ba76c-0205-4966-948e-3d5640140688-original",
+      "verdict": "FAIL",
+      "notes": "Wrong event type (imNetworkSession instead of imWebSession), wrong field (EventResult contains 'error' instead of an HTTP 5xx status-code check), and a near-degenerate threshold (>1 vs GT's 100)."
+    },
+    {
+      "pair_id": "a59ba76c-0205-4966-948e-3d5640140688-casual",
+      "verdict": "PASS",
+      "notes": "Correct event type, correct condition (HttpStatusCode >= 500), and threshold exactly matches GT's 100."
+    },
+    {
+      "pair_id": "a59ba76c-0205-4966-948e-3d5640140688-sop",
+      "verdict": "PASS",
+      "notes": "Precise match: HttpStatusCode in [500,600), per-source count, threshold 100 exactly matching GT."
+    },
+    {
+      "pair_id": "813ccf3b-0321-4622-b0bc-63518fd14454-original",
+      "verdict": "FAIL",
+      "notes": "Correct structure (dcount(HttpUserAgent) by source) but threshold of 1 vs GT's explicit 5 is a 5x sensitivity mismatch that materially changes detection behavior, not a minor variation."
+    },
+    {
+      "pair_id": "813ccf3b-0321-4622-b0bc-63518fd14454-casual",
+      "verdict": "PASS",
+      "notes": "Correct structure and threshold (>5) exactly matching GT."
+    },
+    {
+      "pair_id": "813ccf3b-0321-4622-b0bc-63518fd14454-sop",
+      "verdict": "PASS",
+      "notes": "HttpStatusCode==200 is an imperfect but reasonable proxy for GT's eventresult='Success' filter; core dcount/threshold structure matches GT's 5 exactly."
+    },
+    {
+      "pair_id": "43c2832e-6c01-4dc1-bd9e-bc3f330c2b31-casual",
+      "verdict": "PASS",
+      "notes": "Clean match: HttpStatusCode==403, per-source daily count, threshold 100 exactly matching GT."
+    },
+    {
+      "pair_id": "43c2832e-6c01-4dc1-bd9e-bc3f330c2b31-sop",
+      "verdict": "FAIL",
+      "notes": "Same condition and threshold as the casual variant, but grouping adds DstUsername and SrcHostname alongside SrcIpAddr — this changes the aggregation granularity substantially (each 3-key combination must individually exceed 100, a much narrower condition than GT's per-source-IP intent)."
+    }
+  ]
+}

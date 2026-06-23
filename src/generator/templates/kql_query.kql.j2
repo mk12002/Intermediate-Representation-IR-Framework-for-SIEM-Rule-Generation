@@ -1,15 +1,45 @@
+{% if join -%}
+let {{ join.alias }} = {{ join_table_name }}
+{% for f in join.filters %}
+{% if f.type == "group" %}
+| where ({% for c in f.conditions %}{{ c.field }} {{ c.operator.value }} {{ c.value | kql_literal }}{% if not loop.last %} or {% endif %}{% endfor %})
+{% else %}
+| where {{ f.field }} {{ f.operator.value }} {{ f.value | kql_literal }}
+{% endif %}
+{% endfor %}
+{% if join.aggregation %}
+{% set jby = (join.group_by or []) + (["bin(TimeGenerated, " ~ (join.time_window | kql_duration) ~ ")"] if join.time_window else []) %}
+{% set jaggs = [join.aggregation] + join.additional_aggregations %}
+| summarize {% for a in jaggs %}{{ a.result_alias }} = {{ a | kql_agg_call }}{% if not loop.last %}, {% endif %}{% endfor %}{% if jby %}
+    by {{ jby | join(", ") }}{% endif %}
+{% endif %}
+;
+{% endif %}
 {{ asim_table_name }}
 {% for f in filters %}
+{% if f.type == "group" %}
+| where ({% for c in f.conditions %}{{ c.field }} {{ c.operator.value }} {{ c.value | kql_literal }}{% if not loop.last %} or {% endif %}{% endfor %})
+{% else %}
 | where {{ f.field }} {{ f.operator.value }} {{ f.value | kql_literal }}
-{% endfor -%}
+{% endif %}
+{% endfor %}
 {% if aggregation %}
-| summarize {{ aggregation.result_alias }} = {{ aggregation.function | kql_agg_fn }}({{ aggregation.field or "" }})
-    by {{ group_by | join(", ") }}{% if time_window %}, bin(TimeGenerated, {{ time_window | kql_duration }}){% endif %}
-
-{% endif -%}
+{% set by_parts = (group_by or []) + (["bin(TimeGenerated, " ~ (time_window | kql_duration) ~ ")"] if time_window else []) %}
+{% set aggs = [aggregation] + additional_aggregations %}
+| summarize {% for a in aggs %}{{ a.result_alias }} = {{ a | kql_agg_call }}{% if not loop.last %}, {% endif %}{% endfor %}{% if by_parts %}
+    by {{ by_parts | join(", ") }}
+{% endif %}
+{% endif %}
+{% if join %}
+| join kind={{ join.join_kind.value }} ({{ join.alias }}) on {{ join.join_on | join(", ") }}
+{% endif %}
 {% if threshold %}
+{% if threshold.compare_to_join_field %}
+| where {{ aggregation.result_alias }} {{ threshold.operator.value }} {{ threshold.compare_to_join_field }} + {{ threshold.value }}
+{% else %}
 | where {{ aggregation.result_alias }} {{ threshold.operator.value }} {{ threshold.value }}
-{% endif -%}
+{% endif %}
+{% endif %}
 {% if output_fields %}
 | project {{ output_fields | join(", ") }}
-{% endif -%}
+{% endif %}

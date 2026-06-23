@@ -1,4 +1,4 @@
-from eval.metrics import field_validity_rate, repair_recovery_rate, syntax_validity_rate
+from eval.metrics import extract_table_reference, field_validity_rate, repair_recovery_rate, syntax_validity_rate
 
 ASIM_AUTH_FIELDS = {
     "EventResult", "EventType", "EventResultDetails", "TargetUserId", "TargetUsername",
@@ -64,3 +64,40 @@ def test_repair_recovery_rate():
     final_passes = [True, False, True, True]
     # cases 0,1,3 failed initially; of those, 0 and 3 ended up passing -> 2/3
     assert repair_recovery_rate(initial_failures, final_passes) == 2 / 3
+
+
+def test_extract_table_reference_finds_main_query_after_join_subquery():
+    """Found live: a JoinStage renders as "let Alias = Table\\n...;\\nMainTable\\n...".
+    The old line-by-line _LET_BINDING skip only filtered lines that
+    themselves started with "let NAME =" — a multi-line let-bound
+    subquery's continuation lines ("| summarize ... by ...") were not
+    let-bindings themselves, so the first one was mistaken for the main
+    query's table reference, which doesn't match _TABLE_REFERENCE (starts
+    with "|"), returning None — making field_validity_rate 0.0 for every
+    join-based query regardless of correctness."""
+    kql = (
+        "let Baseline = imDns\n"
+        "| summarize BaselineCount = dcount(DnsQuery)\n"
+        "    by SrcIpAddr, bin(TimeGenerated, 14d);\n"
+        "imDns\n"
+        '| where DnsQuery has "mining"\n'
+        "| summarize CurrentCount = count()\n"
+        "    by SrcIpAddr, bin(TimeGenerated, 1h)\n"
+        "| join kind=inner (Baseline) on SrcIpAddr"
+    )
+    assert extract_table_reference(kql) == "imDns"
+
+
+def test_fvr_passes_a_correct_join_query():
+    kql = (
+        "let Baseline = imDns\n"
+        "| summarize BaselineCount = dcount(DnsQuery)\n"
+        "    by SrcIpAddr, bin(TimeGenerated, 14d);\n"
+        "imDns\n"
+        '| where DnsQuery has "mining"\n'
+        "| summarize CurrentCount = count()\n"
+        "    by SrcIpAddr, bin(TimeGenerated, 1h)\n"
+        "| join kind=inner (Baseline) on SrcIpAddr"
+    )
+    known_fields = {"DnsQuery", "SrcIpAddr", "TimeGenerated"}
+    assert field_validity_rate([kql], known_fields) == 1.0

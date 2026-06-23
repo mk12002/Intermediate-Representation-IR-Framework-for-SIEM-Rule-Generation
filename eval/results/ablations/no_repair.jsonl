@@ -1,45 +1,45 @@
-{"pair_id": "61988db3-0565-49b5-b8e3-747195baac6e-original", "success": false, "kql": null}
+{"pair_id": "61988db3-0565-49b5-b8e3-747195baac6e-original", "success": true, "kql": "imFileEvent\n| where FilePath contains \"recycle bin\""}
 {"pair_id": "61988db3-0565-49b5-b8e3-747195baac6e-casual", "success": false, "kql": null}
 {"pair_id": "61988db3-0565-49b5-b8e3-747195baac6e-sop", "success": false, "kql": null}
-{"pair_id": "5b6ae038-f66e-4f74-9315-df52fd492be4-original", "success": false, "kql": null}
-{"pair_id": "5b6ae038-f66e-4f74-9315-df52fd492be4-casual", "success": false, "kql": null}
-{"pair_id": "5b6ae038-f66e-4f74-9315-df52fd492be4-sop", "success": false, "kql": null}
+{"pair_id": "5b6ae038-f66e-4f74-9315-df52fd492be4-original", "success": true, "kql": "imProcessCreate\n| where ActingProcessCommandLine has \"accepteula\"\n| where ActingProcessCommandLine has \"-s\"\n| where ActingProcessCommandLine has \"-r\"\n| where ActingProcessCommandLine has \"-q\"\n| where ActingProcessName !endswith \"sdelete.exe\""}
+{"pair_id": "5b6ae038-f66e-4f74-9315-df52fd492be4-casual", "success": true, "kql": "imProcessCreate\n| where ActingProcessCommandLine has \"accepteula\"\n| where ActingProcessCommandLine has \"-s\"\n| where ActingProcessCommandLine has \"-r\"\n| where ActingProcessCommandLine has \"-q\"\n| where ActingProcessName !endswith \"sdelete.exe\""}
+{"pair_id": "5b6ae038-f66e-4f74-9315-df52fd492be4-sop", "success": true, "kql": "imProcessCreate\n| where ActingProcessCommandLine has \"accepteula\"\n| where ActingProcessCommandLine has \"-s\"\n| where ActingProcessCommandLine has \"-r\"\n| where ActingProcessCommandLine has \"-q\"\n| where ActingProcessName !endswith \"sdelete.exe\""}
 {"pair_id": "bd89c7a0-76cb-4fa1-bc64-c366687cda9e-original", "success": false, "kql": null}
 {"pair_id": "bd89c7a0-76cb-4fa1-bc64-c366687cda9e-casual", "success": false, "kql": null}
 {"pair_id": "bd89c7a0-76cb-4fa1-bc64-c366687cda9e-sop", "success": false, "kql": null}
-{"pair_id": "7b3ed03a-7474-4dad-9c6a-92e7b69f6584-original", "success": false, "kql": null}
+{"pair_id": "7b3ed03a-7474-4dad-9c6a-92e7b69f6584-original", "success": true, "kql": "imProcessCreate\n| where ActingProcessName == \"net.exe\"\n| where ActingProcessCommandLine has_any (\"user\", \"group\")"}
 {"pair_id": "7b3ed03a-7474-4dad-9c6a-92e7b69f6584-casual", "success": false, "kql": null}
 {"pair_id": "7b3ed03a-7474-4dad-9c6a-92e7b69f6584-sop", "success": false, "kql": null}
 {"pair_id": "4500a2ff-455b-4ee7-a21d-5ac5c7c9ea87-original", "success": false, "kql": null}
-{"pair_id": "4500a2ff-455b-4ee7-a21d-5ac5c7c9ea87-casual", "success": false, "kql": null}
+{"pair_id": "4500a2ff-455b-4ee7-a21d-5ac5c7c9ea87-casual", "success": true, "kql": "imProcessCreate\n| where CommandLine has \"mailbox export\"\n| where CommandLine has \"delete\"\n| summarize ExportAndDeletionCount = count(), EventStartTime = min(TimeGenerated), EventEndTime = max(TimeGenerated)    by ActorUsername, bin(TimeGenerated, 1h)"}
 {"pair_id": "4500a2ff-455b-4ee7-a21d-5ac5c7c9ea87-sop", "success": false, "kql": null}
 {"pair_id": "4e3af8e3-a29f-4eec-ac25-55517dca6512-original", "success": false, "kql": null}
-{"pair_id": "4e3af8e3-a29f-4eec-ac25-55517dca6512-casual", "success": false, "kql": null}
+{"pair_id": "4e3af8e3-a29f-4eec-ac25-55517dca6512-casual", "success": true, "kql": "imProcessCreate\n| summarize ProcessStartCount = count(), FirstSeenTime = min(ActingProcessCreationTime), LastSeenTime = max(ActingProcessCreationTime)    by ActingProcessName, bin(TimeGenerated, 3d)\n| where ProcessStartCount <= 1"}
 {"pair_id": "4e3af8e3-a29f-4eec-ac25-55517dca6512-sop", "success": false, "kql": null}
 {"pair_id": "365a889c-ae0f-461d-bdf1-d6ce11d0ef6f-original", "success": false, "kql": null}
-{"pair_id": "365a889c-ae0f-461d-bdf1-d6ce11d0ef6f-casual", "success": false, "kql": null}
-{"pair_id": "365a889c-ae0f-461d-bdf1-d6ce11d0ef6f-sop", "success": false, "kql": null}
-{"pair_id": "c4956c0b-4527-406c-b135-ef44002e1e70-original", "success": false, "kql": null}
-{"pair_id": "c4956c0b-4527-406c-b135-ef44002e1e70-casual", "success": false, "kql": null}
-{"pair_id": "c4956c0b-4527-406c-b135-ef44002e1e70-sop", "success": false, "kql": null, "error": "Failed to parse ExtractionOutput from completion {\"likely_event_type\": \"DNS Beacon Detection\", \"actors\": [\"dns query source IPs\", \"time delta thresholds (10 seconds)\", \"repetition count threshold (15 times)\"], \"action_description\": \"Identify DNS queries from specific IP addresses that exhibit high inter-arrival time variability and repeated patterns, suggesting beaconing behavior.\", \"threshold_language\": [\"dns query inter-arrival time exceeds 10 seconds\", \"repeats at least 15 times\", \"single most common time-delta accounts for at least 80% of occurrences\"], \"time_language\": \"Over the period from 2 days ago to 1 day ago, repeatedly within this window.\", \"candidate_fields\": [\"dns query source IPs\", \"inter-arrival time delta\", \"repetition count\", \"dominant time-delta percentage\"]}. Got: 1 validation error for ExtractionOutput\nthreshold_language\n  Input should be a valid string [type=string_type, input_value=['dns query inter-arrival...ast 80% of occurrences'], input_type=list]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_type\nFor troubleshooting, visit: https://docs.langchain.com/oss/python/langchain/errors/OUTPUT_PARSING_FAILURE "}
+{"pair_id": "365a889c-ae0f-461d-bdf1-d6ce11d0ef6f-casual", "success": true, "kql": "imProcessCreate\n| where ActingProcessName == \"rundll32\""}
+{"pair_id": "365a889c-ae0f-461d-bdf1-d6ce11d0ef6f-sop", "success": true, "kql": "imProcessCreate\n| where ActingProcessName == \"rundll32.exe\""}
+{"pair_id": "c4956c0b-4527-406c-b135-ef44002e1e70-original", "success": true, "kql": "imDns\n| where DnsResponseCodeName == \"NOERROR\"\n| summarize BeaconingCount = count(DnsQuery), QueriedDomains = make_set(DnsQuery, 100), EventStartTime = min(TimeGenerated), EventEndTime = max(TimeGenerated)    by SrcIpAddr, bin(TimeGenerated, 1h)\n| where BeaconingCount > 10\n| project SrcIpAddr, BeaconingCount, QueriedDomains, EventStartTime, EventEndTime"}
+{"pair_id": "c4956c0b-4527-406c-b135-ef44002e1e70-casual", "success": true, "kql": "imDns\n| summarize QueryCount = count(), QueriedDomains = make_set(DnsQuery, 100), FirstQueryTime = min(TimeGenerated), LastQueryTime = max(TimeGenerated)    by SrcIpAddr, DstIpAddr, bin(TimeGenerated, 1h)\n| where QueryCount > 10"}
+{"pair_id": "c4956c0b-4527-406c-b135-ef44002e1e70-sop", "success": false, "kql": null}
 {"pair_id": "b35f6633-0d18-494c-a5e4-2828daf442bf-original", "success": false, "kql": null}
 {"pair_id": "b35f6633-0d18-494c-a5e4-2828daf442bf-casual", "success": false, "kql": null}
-{"pair_id": "b35f6633-0d18-494c-a5e4-2828daf442bf-sop", "success": false, "kql": null}
-{"pair_id": "8717e498-7b5d-4e23-9e7c-fa4913dbfd79-original", "success": false, "kql": null}
+{"pair_id": "b35f6633-0d18-494c-a5e4-2828daf442bf-sop", "success": true, "kql": "imDns\n| where DnsResponseCodeName != \"NOERROR\"\n| summarize NonNoerrorDnsCount = count(), DnsResponseCodes = make_set(DnsResponseCodeName, 25), EventStartTime = min(TimeGenerated), EventEndTime = max(TimeGenerated)    by SrcIpAddr, bin(TimeGenerated, 1d)\n| project SrcIpAddr, NonNoerrorDnsCount, DnsResponseCodes, EventStartTime, EventEndTime"}
+{"pair_id": "8717e498-7b5d-4e23-9e7c-fa4913dbfd79-original", "success": true, "kql": "let Baseline = imNetworkSession\n| where NetworkApplicationProtocol == \"SMB\"\n| summarize BaselineAvg = avg(NetworkBytes)    by SrcIpAddr, bin(TimeGenerated, 14d);\nimNetworkSession\n| where NetworkApplicationProtocol == \"SMB\"\n| summarize CurrentAvg = avg(NetworkBytes)    by SrcIpAddr, bin(TimeGenerated, 1d)\n| join kind=inner (Baseline) on SrcIpAddr\n| where CurrentAvg > BaselineAvg + 50"}
 {"pair_id": "8717e498-7b5d-4e23-9e7c-fa4913dbfd79-casual", "success": false, "kql": null}
 {"pair_id": "8717e498-7b5d-4e23-9e7c-fa4913dbfd79-sop", "success": false, "kql": null}
 {"pair_id": "a61e9fc1-dd9e-4588-a497-2a34a1d811bf-original", "success": false, "kql": null}
-{"pair_id": "a61e9fc1-dd9e-4588-a497-2a34a1d811bf-casual", "success": false, "kql": null}
+{"pair_id": "a61e9fc1-dd9e-4588-a497-2a34a1d811bf-casual", "success": true, "kql": "imNetworkSession\n| where NetworkApplicationProtocol == \"dns\"\n| where DstPortNumber != 53"}
 {"pair_id": "a61e9fc1-dd9e-4588-a497-2a34a1d811bf-sop", "success": false, "kql": null}
-{"pair_id": "a59ba76c-0205-4966-948e-3d5640140688-original", "success": false, "kql": null}
-{"pair_id": "a59ba76c-0205-4966-948e-3d5640140688-casual", "success": false, "kql": null}
-{"pair_id": "a59ba76c-0205-4966-948e-3d5640140688-sop", "success": false, "kql": null}
-{"pair_id": "813ccf3b-0321-4622-b0bc-63518fd14454-original", "success": false, "kql": null}
-{"pair_id": "813ccf3b-0321-4622-b0bc-63518fd14454-casual", "success": false, "kql": null}
-{"pair_id": "813ccf3b-0321-4622-b0bc-63518fd14454-sop", "success": false, "kql": null}
+{"pair_id": "a59ba76c-0205-4966-948e-3d5640140688-original", "success": true, "kql": "imWebSession\n| where HttpStatusCode >= 500\n| summarize ErrorCount = count(), ErrorCodes = make_set(HttpStatusCode, 100), EventStartTime = min(TimeGenerated), EventEndTime = max(TimeGenerated)    by SrcIpAddr, bin(TimeGenerated, 1h)\n| where ErrorCount > 1"}
+{"pair_id": "a59ba76c-0205-4966-948e-3d5640140688-casual", "success": true, "kql": "imWebSession\n| where HttpStatusCode >= 500\n| summarize ErrorCount = count(), Urls = make_set(Url, 100), EventStartTime = min(TimeGenerated), EventEndTime = max(TimeGenerated)    by SrcIpAddr, bin(TimeGenerated, 1h)\n| where ErrorCount > 100"}
+{"pair_id": "a59ba76c-0205-4966-948e-3d5640140688-sop", "success": true, "kql": "imWebSession\n| where HttpStatusCode >= 500\n| where HttpStatusCode < 600\n| summarize ServerErrorCount = count(), Urls = make_set(Url, 100), EventStartTime = min(TimeGenerated), EventEndTime = max(TimeGenerated)    by SrcIpAddr, bin(TimeGenerated, 1h)\n| where ServerErrorCount > 100"}
+{"pair_id": "813ccf3b-0321-4622-b0bc-63518fd14454-original", "success": true, "kql": "imWebSession\n| summarize DistinctUserAgentCount = dcount(HttpUserAgent), EventStartTime = min(TimeGenerated), EventEndTime = max(TimeGenerated), UserAgents = make_set(HttpUserAgent, 100)    by SrcIpAddr, bin(TimeGenerated, 5m)\n| where DistinctUserAgentCount > 1"}
+{"pair_id": "813ccf3b-0321-4622-b0bc-63518fd14454-casual", "success": true, "kql": "imWebSession\n| summarize DistinctUserAgentCount = dcount(HttpUserAgent)    by SrcIpAddr, bin(TimeGenerated, 1h)\n| where DistinctUserAgentCount > 5"}
+{"pair_id": "813ccf3b-0321-4622-b0bc-63518fd14454-sop", "success": true, "kql": "imWebSession\n| where HttpStatusCode == 200\n| summarize DistinctUserAgentCount = dcount(HttpUserAgent)    by SrcIpAddr, bin(TimeGenerated, 1h)\n| where DistinctUserAgentCount > 5"}
 {"pair_id": "c99cf650-c53b-4c4c-9671-7d7500191a10-original", "success": false, "kql": null}
 {"pair_id": "c99cf650-c53b-4c4c-9671-7d7500191a10-casual", "success": false, "kql": null}
 {"pair_id": "c99cf650-c53b-4c4c-9671-7d7500191a10-sop", "success": false, "kql": null}
 {"pair_id": "43c2832e-6c01-4dc1-bd9e-bc3f330c2b31-original", "success": false, "kql": null}
-{"pair_id": "43c2832e-6c01-4dc1-bd9e-bc3f330c2b31-casual", "success": false, "kql": null}
-{"pair_id": "43c2832e-6c01-4dc1-bd9e-bc3f330c2b31-sop", "success": false, "kql": null}
+{"pair_id": "43c2832e-6c01-4dc1-bd9e-bc3f330c2b31-casual", "success": true, "kql": "imWebSession\n| where HttpStatusCode == 403\n| summarize ForbiddenCount = count(), Urls = make_set(Url, 100), EventStartTime = min(TimeGenerated), EventEndTime = max(TimeGenerated)    by SrcIpAddr, bin(TimeGenerated, 1d)\n| where ForbiddenCount > 100"}
+{"pair_id": "43c2832e-6c01-4dc1-bd9e-bc3f330c2b31-sop", "success": true, "kql": "imWebSession\n| where HttpStatusCode == 403\n| summarize ForbiddenCount = count(), Urls = make_set(Url, 100), EventStartTime = min(TimeGenerated), EventEndTime = max(TimeGenerated)    by SrcIpAddr, SrcUsername, SrcHostname, bin(TimeGenerated, 1d)\n| where ForbiddenCount > 100"}

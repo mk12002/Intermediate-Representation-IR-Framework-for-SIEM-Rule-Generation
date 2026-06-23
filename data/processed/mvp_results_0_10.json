@@ -15,63 +15,18 @@
   "success": false,
   "attempts_used": null,
   "reason": "MAX_REPAIR_ATTEMPTS_EXCEEDED",
-  "ir": {
-   "event_type": "DnsEvent",
-   "filters": [
-    {
-     "field": "actors",
-     "operator": "==",
-     "value": [
-      "IP addresses"
-     ]
-    }
-   ],
-   "aggregation": null,
-   "group_by": null,
-   "threshold": null,
-   "time_window": null,
-   "output_fields": [
-    "ASIM"
-   ]
-  },
+  "ir": null,
   "kql": null,
   "ground_truth_kql": "let torProxies=dynamic([\"tor2web.org\", \"tor2web.com\", \"torlink.co\", \"onion.to\", \"onion.ink\", \"onion.cab\", \"onion.nu\", \"onion.link\", \n\"onion.it\", \"onion.city\", \"onion.direct\", \"onion.top\", \"onion.casa\", \"onion.plus\", \"onion.rip\", \"onion.dog\", \"tor2web.fi\", \n\"tor2web.blutmagie.de\", \"onion.sh\", \"onion.lu\", \"onion.pet\", \"t2w.pw\", \"tor2web.ae.org\", \"tor2web.io\", \"tor2web.xyz\", \"onion.lt\", \n\"s1.tor-gateways.de\", \"s2.tor-gateways.de\", \"s3.tor-gateways.de\", \"s4.tor-gateways.de\", \"s5.tor-gateways.de\", \"hiddenservice.net\"]);\n_Im_Dns(domain_has_any=torProxies)\n| extend HostName = tostring(split(Dvc, \".\")[0]), DomainIndex = toint(indexof(Dvc, '.'))\n| extend HostNameDomain = iff(DomainIndex != -1, substring(Dvc, DomainIndex + 1), Dvc)\n| project-away DomainIndex"
  },
  {
   "rule_id": "bc5ffe2a-84d6-48fe-bc7b-1055100469bc",
   "tier": "simple",
-  "success": true,
-  "attempts_used": 3,
-  "reason": null,
-  "ir": {
-   "event_type": "FileEvent",
-   "filters": [
-    {
-     "field": "FilePath",
-     "operator": "==",
-     "value": [
-      "5d763e948201f4c3bfaa2dccefcdddfbfbcfeeb"
-     ]
-    },
-    {
-     "field": "ActorUserId",
-     "operator": "in",
-     "value": [
-      "SUPERNOVA",
-      "SUNBURST"
-     ]
-    }
-   ],
-   "aggregation": null,
-   "group_by": null,
-   "threshold": null,
-   "time_window": null,
-   "output_fields": [
-    "FilePath",
-    "ActorUserId"
-   ]
-  },
-  "kql": "imFileEvent\n| where FilePath == (\"5d763e948201f4c3bfaa2dccefcdddfbfbcfeeb\")\n| where ActorUserId in (\"SUPERNOVA\", \"SUNBURST\")\n| project FilePath, ActorUserId",
+  "success": false,
+  "attempts_used": null,
+  "reason": "MAX_REPAIR_ATTEMPTS_EXCEEDED",
+  "ir": null,
+  "kql": null,
   "ground_truth_kql": "let SunburstMD5=dynamic([\"b91ce2fa41029f6955bff20079468448\",\"02af7cec58b9a5da1c542b5a32151ba1\",\"2c4a910a1299cdae2a4e55988a2f102e\",\"846e27a652a5e1bfbd0ddd38a16dc865\",\"4f2eb62fa529c0283b28d05ddd311fae\"]);\nlet SupernovaMD5=\"56ceb6d0011d87b6e4d7023d7ef85676\";\nimFileEvent\n| where TargetFileMD5 in (SunburstMD5) or TargetFileMD5 in (SupernovaMD5)\n| extend AccountName = tostring(split(User, @'\\')[1]), AccountNTDomain = tostring(split(User, @'\\')[0])\n| extend AlgorithmType = \"MD5\""
  },
  {
@@ -80,18 +35,66 @@
   "success": false,
   "attempts_used": null,
   "reason": "MAX_REPAIR_ATTEMPTS_EXCEEDED",
-  "ir": null,
+  "ir": {
+   "event_type": "NetworkSessionEvent",
+   "filters": [
+    {
+     "field": "DstProcessName",
+     "operator": "==",
+     "value": "AdFind"
+    },
+    {
+     "field": "Type",
+     "operator": "in",
+     "value": [
+      "MD5",
+      "SHA1",
+      "SHA256"
+     ]
+    }
+   ],
+   "aggregation": null,
+   "group_by": [
+    "DstProcessName"
+   ],
+   "threshold": {
+    "operator": "==",
+    "value": 0
+   },
+   "time_window": null,
+   "output_fields": null
+  },
   "kql": null,
   "ground_truth_kql": "let args = dynamic([\"objectcategory\",\"domainlist\",\"dcmodes\",\"adinfo\",\"trustdmp\",\"computers_pwdnotreqd\",\"Domain Admins\", \"objectcategory=person\", \"objectcategory=computer\", \"objectcategory=*\",\"dclist\"]);\nlet parentProcesses = dynamic([\"pwsh.exe\",\"powershell.exe\",\"cmd.exe\"]);\nimProcessCreate\n//looks for execution from a shell\n| where ActingProcessName has_any (parentProcesses)\n| extend ActingProcessFileName = tostring(split(ActingProcessName, '\\\\')[-1])\n| where ActingProcessFileName in~ (parentProcesses)\n// main filter\n| where Process hassuffix \"AdFind.exe\" or TargetProcessSHA256 == \"c92c158d7c37fea795114fa6491fe5f145ad2f8c08776b18ae79db811e8e36a3\"\n// AdFind common Flags to check for from various threat actor TTPs\nor CommandLine has_any (args)\n| extend AlgorithmType = \"SHA256\"\n| extend AccountName = tostring(split(User, @'\\')[1]), AccountNTDomain = tostring(split(User, @'\\')[0])\n| extend HostName = tostring(split(Dvc, \".\")[0]), DomainIndex = toint(indexof(Dvc, '.'))\n| extend HostNameDomain = iff(DomainIndex != -1, substring(Dvc, DomainIndex + 1), Dvc)\n| project-away DomainIndex"
  },
  {
   "rule_id": "0dd2a343-4bf9-4c93-a547-adf3658ddaec",
   "tier": "moderate",
-  "success": false,
-  "attempts_used": null,
-  "reason": "MAX_REPAIR_ATTEMPTS_EXCEEDED",
-  "ir": null,
-  "kql": null,
+  "success": true,
+  "attempts_used": 2,
+  "reason": null,
+  "ir": {
+   "event_type": "FileEvent",
+   "filters": [
+    {
+     "field": "ActingProcessName",
+     "operator": "==",
+     "value": [
+      "Policy-based file deployment"
+     ]
+    }
+   ],
+   "aggregation": null,
+   "group_by": null,
+   "threshold": null,
+   "time_window": null,
+   "output_fields": [
+    "ActingProcessFilename",
+    "ActingAppId",
+    "ActingAppName"
+   ]
+  },
+  "kql": "imFileEvent\n| where ActingProcessName == (\"Policy-based file deployment\")\n| project ActingProcessFilename, ActingAppId, ActingAppName",
   "ground_truth_kql": "let known_processes = (\n  imProcess\n  // Change these values if adjusting Query Frequency or Query Period\n  | where TimeGenerated between(ago(14d)..ago(1d))\n  | where Process has_any (\"Policies\\\\{6AC1786C-016F-11D2-945F-00C04fB984F9}\", \"Policies\\\\{31B2F340-016D-11D2-945F-00C04FB984F9}\")\n  | summarize by Process);\n  imProcess\n  // Change these values if adjusting Query Frequency or Query Period\n  | where TimeGenerated > ago(1d)\n  | where Process has_any (\"Policies\\\\{6AC1786C-016F-11D2-945F-00C04fB984F9}\", \"Policies\\\\{31B2F340-016D-11D2-945F-00C04FB984F9}\")\n  | where Process !in (known_processes)\n  | summarize FirstSeen=min(TimeGenerated), LastSeen=max(TimeGenerated) by Process, CommandLine, DvcHostname\n  | extend HostName = tostring(split(DvcHostname, \".\")[0]), DomainIndex = toint(indexof(DvcHostname, '.'))\n  | extend HostNameDomain = iff(DomainIndex != -1, substring(DvcHostname, DomainIndex + 1), DvcHostname)\n  | project-away DomainIndex"
  },
  {
@@ -100,36 +103,7 @@
   "success": false,
   "attempts_used": null,
   "reason": "MAX_REPAIR_ATTEMPTS_EXCEEDED",
-  "ir": {
-   "event_type": "AuthenticationEvent",
-   "filters": [
-    {
-     "field": "HTTP Response Code",
-     "operator": ">=",
-     "value": 403
-    },
-    {
-     "field": "Actor Source Type",
-     "operator": "in",
-     "value": [
-      "Web Service"
-     ]
-    }
-   ],
-   "aggregation": null,
-   "group_by": [
-    "Authentication Method"
-   ],
-   "threshold": {
-    "operator": ">=",
-    "value": 10
-   },
-   "time_window": null,
-   "output_fields": [
-    "HTTP Response Code",
-    "Authentication Method"
-   ]
-  },
+  "ir": null,
   "kql": null,
   "ground_truth_kql": "let error403_count_threshold=200;\n_Im_WebSession(eventresultdetails_in=dynamic([\"403\"]))\n| extend ParsedUrl=parse_url(Url)\n| extend UrlHost=tostring(ParsedUrl[\"Host\"]), UrlSchema=tostring(ParsedUrl[\"Schema\"])\n| summarize StartTime = min(TimeGenerated), EndTime = max(TimeGenerated), NumberOfErrors = count(), Urls=makeset(Url) by UrlHost, SrcIpAddr\n| where NumberOfErrors > error403_count_threshold\n| sort by NumberOfErrors desc\n| extend Url=tostring(Urls[0])"
  },
@@ -153,27 +127,34 @@
    "event_type": "AuthenticationEvent",
    "filters": [
     {
-     "field": "ActorUserId",
+     "field": "ActingProcessName",
      "operator": "==",
-     "value": 1
+     "value": "LogonUI.exe"
     },
     {
-     "field": "countries",
-     "operator": "in",
-     "value": [
-      "different_countries"
-     ]
+     "field": "ActorUserIdType",
+     "operator": "!=",
+     "value": ""
     }
    ],
-   "aggregation": null,
+   "aggregation": {
+    "function": "count",
+    "field": "ActingProcessName",
+    "result_alias": "SuccessfulUserLogins"
+   },
    "group_by": [
-    "users"
+    "DstGeoCountry",
+    "ActorUserIdType"
    ],
-   "threshold": null,
+   "threshold": {
+    "operator": ">=",
+    "value": 3
+   },
    "time_window": "within 3 hours",
    "output_fields": [
-    "successful_user_logins",
-    "countries"
+    "ActingProcessName",
+    "ActorUserIdType",
+    "DstGeoCountry"
    ]
   },
   "kql": null,
