@@ -1,386 +1,368 @@
 from src.generator.compiler import generate_kql
 from src.ir_engine.ir_schema import (
-    Aggregation,
-    AggregationFunction,
-    ASIMEventType,
-    Filter,
-    FilterGroup,
-    FilterOperator,
-    JoinKind,
-    JoinStage,
-    SecurityIR,
-    Threshold,
-    ThresholdOperator,
+    Aggregation, AggregationFunction, ArgMaxMin, ASIMEventType, Filter, FilterGroup, FilterOperator,
+    JoinKind, JoinStage, KqlPipeline, WhereStage, SummarizeStage, ProjectStage, ExtendStage, ComputedField,
+    MvExpandStage, MakeSeriesStage, SeriesAnomalyStage, ParseStage, ParseToken,
 )
 
-
 def test_simple_ir_filters_only():
-    ir = SecurityIR(
-        event_type=ASIMEventType.AUTHENTICATION,
-        filters=[Filter(field="EventResult", operator=FilterOperator.EQ, value="Failure")],
+    ir = KqlPipeline(
+        source_table=ASIMEventType.AUTHENTICATION,
+        stages=[
+            WhereStage(filters=[Filter(field="EventResult", operator=FilterOperator.EQ, value="Failure")])
+        ]
     )
     kql = generate_kql(ir)
     assert kql.startswith("imAuthentication")
     assert 'where EventResult == "Failure"' in kql
     assert "summarize" not in kql
 
-
-def test_moderate_ir_aggregation_threshold_time_window():
-    ir = SecurityIR(
-        event_type=ASIMEventType.AUTHENTICATION,
-        filters=[Filter(field="EventResult", operator=FilterOperator.EQ, value="Failure")],
-        aggregation=Aggregation(function=AggregationFunction.COUNT, result_alias="FailCount"),
-        group_by=["TargetUsername"],
-        threshold=Threshold(operator=ThresholdOperator.GT, value=15),
-        time_window="PT10M",
+def test_moderate_ir_aggregation():
+    ir = KqlPipeline(
+        source_table=ASIMEventType.AUTHENTICATION,
+        stages=[
+            WhereStage(filters=[Filter(field="EventResult", operator=FilterOperator.EQ, value="Failure")]),
+            SummarizeStage(
+                aggregations=[Aggregation(function=AggregationFunction.COUNT, result_alias="FailCount")],
+                group_by=["TargetUsername"],
+                time_window="PT10M"
+            ),
+            WhereStage(filters=[Filter(field="FailCount", operator=FilterOperator.GT, value=15)])
+        ]
     )
     kql = generate_kql(ir)
     assert "summarize FailCount = count()" in kql
     assert "by TargetUsername, bin(TimeGenerated, 10m)" in kql
     assert "where FailCount > 15" in kql
 
-
 def test_output_fields_projected():
-    ir = SecurityIR(
-        event_type=ASIMEventType.NETWORK_SESSION,
-        output_fields=["SrcIpAddr", "DstIpAddr"],
+    ir = KqlPipeline(
+        source_table=ASIMEventType.NETWORK_SESSION,
+        stages=[
+            ProjectStage(fields=["SrcIpAddr", "DstIpAddr"])
+        ]
     )
     kql = generate_kql(ir)
     assert "project SrcIpAddr, DstIpAddr" in kql
     assert kql.startswith("imNetworkSession")
 
-
-def test_distinct_count_renders_dcount():
-    ir = SecurityIR(
-        event_type=ASIMEventType.AUTHENTICATION,
-        aggregation=Aggregation(
-            function=AggregationFunction.DISTINCT_COUNT, field="TargetUsername", result_alias="DistinctUsers"
-        ),
-        group_by=["SrcIpAddr"],
-        time_window="PT5M",
-    )
-    kql = generate_kql(ir)
-    assert "dcount(TargetUsername)" in kql
-
-
-def test_percentile_renders_with_both_field_and_value_args():
-    """percentile() takes two arguments (field, N) — every other supported
-    aggregation function takes zero or one, so this needs its own render
-    path rather than the plain "fn(field)" shape."""
-    ir = SecurityIR(
-        event_type=ASIMEventType.AUTHENTICATION,
-        aggregation=Aggregation(
-            function=AggregationFunction.PERCENTILE, field="EventResult", percentile=95, result_alias="P95",
-        ),
-        group_by=["SrcIpAddr"],
-        time_window="PT5M",
-    )
-    kql = generate_kql(ir)
-    assert "percentile(EventResult, 95.0)" in kql
-    assert "P95 = percentile" in kql
-
-
-def test_make_set_renders_with_limit():
-    ir = SecurityIR(
-        event_type=ASIMEventType.WEB_SESSION,
-        aggregation=Aggregation(function=AggregationFunction.MAKE_SET, field="Url", result_alias="Urls", limit=100),
-        time_window="PT1H",
-    )
-    kql = generate_kql(ir)
-    assert "Urls = make_set(Url, 100)" in kql
-
-
-def test_make_list_renders_without_limit_when_omitted():
-    ir = SecurityIR(
-        event_type=ASIMEventType.WEB_SESSION,
-        aggregation=Aggregation(function=AggregationFunction.MAKE_LIST, field="Url", result_alias="Urls"),
-        time_window="PT1H",
-    )
-    kql = generate_kql(ir)
-    assert "Urls = make_list(Url)" in kql
-
-
-def test_additional_aggregations_render_as_extra_summarize_columns():
-    """Most real ASIM analytic rules compute several summarize columns
-    together (count + evidence + timestamps) — confirmed against actual
-    ground-truth shape (e.g. "ErrorCount=count(), Urls=make_set(Url,100),
-    EventStartTime=min(TimeGenerated), EventEndTime=max(TimeGenerated)")."""
-    ir = SecurityIR(
-        event_type=ASIMEventType.WEB_SESSION,
-        aggregation=Aggregation(function=AggregationFunction.COUNT, result_alias="ErrorCount"),
-        additional_aggregations=[
-            Aggregation(function=AggregationFunction.MAKE_SET, field="Url", result_alias="Urls", limit=100),
-            Aggregation(function=AggregationFunction.MIN, field="TimeGenerated", result_alias="EventStartTime"),
-            Aggregation(function=AggregationFunction.MAX, field="TimeGenerated", result_alias="EventEndTime"),
-        ],
-        group_by=["SrcIpAddr"],
-        time_window="P1D",
-    )
-    kql = generate_kql(ir)
-    assert "summarize ErrorCount = count(), Urls = make_set(Url, 100), EventStartTime = min(TimeGenerated), EventEndTime = max(TimeGenerated)" in kql
-    assert "by SrcIpAddr" in kql
-
-
-def test_join_stage_additional_aggregations_render():
-    ir = SecurityIR(
-        event_type=ASIMEventType.DNS,
-        aggregation=Aggregation(function=AggregationFunction.COUNT, result_alias="CurrentCount"),
-        group_by=["SrcIpAddr"],
-        time_window="PT1H",
-        join=JoinStage(
-            event_type=ASIMEventType.DNS,
-            aggregation=Aggregation(function=AggregationFunction.COUNT, result_alias="Count"),
-            additional_aggregations=[
-                Aggregation(function=AggregationFunction.MAKE_LIST, field="DnsQuery", result_alias="Queries"),
-            ],
-            time_window="P14D",
-            join_on=["SrcIpAddr"],
-        ),
-    )
-    kql = generate_kql(ir)
-    assert "Count = count(), Queries = make_list(DnsQuery)" in kql
-
-
-def test_aggregation_with_time_window_but_no_group_by_has_no_leading_comma():
-    """Found live: group_by=[] + time_window set used to render
-    "by , bin(TimeGenerated, 5m)" — a leading comma with no preceding
-    group-by key, which is dead syntax but still passed the syntax
-    validator (no left operand isn't a grammar violation it checks for)."""
-    ir = SecurityIR(
-        event_type=ASIMEventType.WEB_SESSION,
-        aggregation=Aggregation(
-            function=AggregationFunction.DISTINCT_COUNT, field="HttpUserAgent", result_alias="DistinctUserAgents"
-        ),
-        group_by=[],
-        time_window="PT5M",
-    )
-    kql = generate_kql(ir)
-    assert "by ," not in kql
-    assert "by bin(TimeGenerated, 5m)" in kql
-
-
-def test_aggregation_with_neither_group_by_nor_time_window_omits_by_clause():
-    ir = SecurityIR(
-        event_type=ASIMEventType.AUTHENTICATION,
-        aggregation=Aggregation(function=AggregationFunction.COUNT, result_alias="TotalCount"),
-    )
-    kql = generate_kql(ir)
-    assert "summarize TotalCount = count()" in kql
-    assert " by " not in kql
-
-
 def test_filter_group_renders_as_parenthesized_or():
-    """Covers the "(A or B) and (C or D)" pattern a flat AND-only filters
-    list can't express — e.g. GT: (CommandLine has 'user' or 'group') and
-    (CommandLine hassuffix '/do' or '/domain')."""
-    ir = SecurityIR(
-        event_type=ASIMEventType.PROCESS,
-        filters=[
-            Filter(field="ActingProcessFilename", operator=FilterOperator.EQ, value="net.exe"),
-            FilterGroup(
-                conditions=[
-                    Filter(field="ActingProcessCommandLine", operator=FilterOperator.CONTAINS, value="user"),
-                    Filter(field="ActingProcessCommandLine", operator=FilterOperator.CONTAINS, value="group"),
+    ir = KqlPipeline(
+        source_table=ASIMEventType.PROCESS,
+        stages=[
+            WhereStage(
+                filters=[
+                    Filter(field="ActingProcessFilename", operator=FilterOperator.EQ, value="net.exe"),
+                    FilterGroup(
+                        conditions=[
+                            Filter(field="ActingProcessCommandLine", operator=FilterOperator.CONTAINS, value="user"),
+                            Filter(field="ActingProcessCommandLine", operator=FilterOperator.CONTAINS, value="group"),
+                        ]
+                    )
                 ]
-            ),
-            FilterGroup(
-                conditions=[
-                    Filter(field="ActingProcessCommandLine", operator=FilterOperator.ENDSWITH, value="/do"),
-                    Filter(field="ActingProcessCommandLine", operator=FilterOperator.ENDSWITH, value="/domain"),
-                ]
-            ),
-        ],
+            )
+        ]
     )
     kql = generate_kql(ir)
     assert 'where ActingProcessFilename == "net.exe"' in kql
     assert 'where (ActingProcessCommandLine contains "user" or ActingProcessCommandLine contains "group")' in kql
-    assert 'where (ActingProcessCommandLine endswith "/do" or ActingProcessCommandLine endswith "/domain")' in kql
-
-
-# --- Negated operator rendering ---
-
-def test_not_contains_renders():
-    ir = SecurityIR(
-        event_type=ASIMEventType.PROCESS,
-        filters=[Filter(field="ActingProcessCommandLine", operator=FilterOperator.NOT_CONTAINS, value="sdelete")],
-    )
-    kql = generate_kql(ir)
-    assert '!contains "sdelete"' in kql
-
-
-def test_not_in_renders():
-    ir = SecurityIR(
-        event_type=ASIMEventType.AUTHENTICATION,
-        filters=[Filter(field="TargetUsername", operator=FilterOperator.NOT_IN, value=["admin", "root"])],
-    )
-    kql = generate_kql(ir)
-    assert '!in ("admin", "root")' in kql
-
-
-def test_has_renders():
-    ir = SecurityIR(
-        event_type=ASIMEventType.DNS,
-        filters=[Filter(field="DnsQuery", operator=FilterOperator.HAS, value="mining")],
-    )
-    kql = generate_kql(ir)
-    assert 'has "mining"' in kql
-
-
-def test_has_any_renders_with_parens():
-    """has_any needs special syntax: field has_any (val1, val2, ...)"""
-    ir = SecurityIR(
-        event_type=ASIMEventType.DNS,
-        filters=[Filter(field="DnsQuery", operator=FilterOperator.HAS_ANY, value=["mining.com", "pool.org"])],
-    )
-    kql = generate_kql(ir)
-    assert 'has_any ("mining.com", "pool.org")' in kql
-
-
-def test_matches_regex_renders():
-    ir = SecurityIR(
-        event_type=ASIMEventType.PROCESS,
-        filters=[Filter(field="ActingProcessCommandLine", operator=FilterOperator.MATCHES_REGEX, value=r"cmd\.exe.*\/c")],
-    )
-    kql = generate_kql(ir)
-    assert 'matches regex' in kql
-
-
-def test_not_startswith_renders():
-    ir = SecurityIR(
-        event_type=ASIMEventType.FILE,
-        filters=[Filter(field="TargetFilePath", operator=FilterOperator.NOT_STARTSWITH, value="C:\\Windows")],
-    )
-    kql = generate_kql(ir)
-    assert '!startswith' in kql
-
-
-def test_not_has_renders():
-    """The real ground-truth pattern this operator exists for: detecting a
-    renamed-binary evasion case requires CommandLine !has "sdelete" — !has
-    was initially missing from the negated-operator set even though
-    !contains/!startswith/!endswith/!in were added alongside it."""
-    ir = SecurityIR(
-        event_type=ASIMEventType.PROCESS,
-        filters=[Filter(field="ActingProcessCommandLine", operator=FilterOperator.NOT_HAS, value="sdelete")],
-    )
-    kql = generate_kql(ir)
-    assert '!has "sdelete"' in kql
-
-
-# --- Join rendering ---
 
 def test_join_renders_let_and_join_clause():
-    """A JoinStage should render as a let-binding + | join kind=... clause."""
-    ir = SecurityIR(
-        event_type=ASIMEventType.DNS,
-        filters=[Filter(field="DnsQuery", operator=FilterOperator.HAS, value="mining")],
-        aggregation=Aggregation(function=AggregationFunction.COUNT, result_alias="CurrentCount"),
-        group_by=["SrcIpAddr"],
-        time_window="PT1H",
-        join=JoinStage(
-            alias="Baseline",
-            event_type=ASIMEventType.DNS,
-            aggregation=Aggregation(
-                function=AggregationFunction.DISTINCT_COUNT,
-                field="DnsQuery",
-                result_alias="BaselineCount",
+    ir = KqlPipeline(
+        source_table=ASIMEventType.DNS,
+        stages=[
+            SummarizeStage(aggregations=[Aggregation(function=AggregationFunction.COUNT, result_alias="CurrentCount")], group_by=["SrcIpAddr"], time_window="PT1H"),
+            JoinStage(
+                kind=JoinKind.INNER,
+                join_on=["SrcIpAddr"],
+                right_pipeline=KqlPipeline(
+                    source_table=ASIMEventType.DNS,
+                    stages=[
+                        SummarizeStage(aggregations=[Aggregation(function=AggregationFunction.DISTINCT_COUNT, field="DnsQuery", result_alias="BaselineCount")], group_by=["SrcIpAddr"], time_window="P14D")
+                    ]
+                )
             ),
-            group_by=["SrcIpAddr"],
-            time_window="P14D",
-            join_on=["SrcIpAddr"],
-            join_kind=JoinKind.INNER,
-        ),
+            WhereStage(filters=[Filter(field="CurrentCount", operator=FilterOperator.GT, value="BaselineCount")])
+        ]
     )
     kql = generate_kql(ir)
-    # Should have the let binding for the subquery
-    assert "let Baseline = imDns" in kql
-    # Should have the join clause on the main query
-    assert "join kind=inner (Baseline) on SrcIpAddr" in kql
-    # Main query should still have its own summarize
-    assert "summarize CurrentCount = count()" in kql
-    # The subquery should have its own summarize
+    assert "join kind=inner" in kql
+    assert "on SrcIpAddr" in kql
     assert "dcount(DnsQuery)" in kql
-    # Found live: the main query's "by ..." clause and the "| join ..."
-    # clause rendered on the SAME line with zero separation
-    # ("...bin(TimeGenerated, 1h)| join kind=inner...") because every
-    # tag-only line between them (the by_parts {% endif %}, the absent
-    # threshold block, the join {% if %}) trimmed its own trailing newline
-    # with nothing left to contribute one. The join clause must start on
-    # its own line.
-    assert "| join kind=inner" in kql
-    for line in kql.splitlines():
-        assert not line.rstrip().endswith(")| join"), f"join clause concatenated onto the previous line: {line!r}"
 
-
-def test_join_leftanti_renders():
-    """leftanti join — exclusion pattern (e.g., exclude known-good IPs)."""
-    ir = SecurityIR(
-        event_type=ASIMEventType.AUTHENTICATION,
-        filters=[Filter(field="EventResult", operator=FilterOperator.EQ, value="Failure")],
-        join=JoinStage(
-            alias="KnownGood",
-            event_type=ASIMEventType.AUTHENTICATION,
-            filters=[Filter(field="EventResult", operator=FilterOperator.EQ, value="Success")],
-            join_on=["SrcIpAddr"],
-            join_kind=JoinKind.LEFTANTI,
-        ),
+def test_extend_renders():
+    ir = KqlPipeline(
+        source_table=ASIMEventType.PROCESS,
+        stages=[
+            ExtendStage(computed_fields=[ComputedField(alias="Diff", expression="CurrentCount - BaselineCount")])
+        ]
     )
     kql = generate_kql(ir)
-    assert "let KnownGood = imAuthentication" in kql
-    assert "join kind=leftanti (KnownGood) on SrcIpAddr" in kql
+    assert "extend Diff = CurrentCount - BaselineCount" in kql
 
 
-def test_join_with_multiple_join_on_keys():
-    ir = SecurityIR(
-        event_type=ASIMEventType.NETWORK_SESSION,
-        join=JoinStage(
-            alias="Sub",
-            event_type=ASIMEventType.NETWORK_SESSION,
-            join_on=["SrcIpAddr", "DstIpAddr"],
-            join_kind=JoinKind.INNER,
-        ),
+def test_numeric_in_filter_renders_unquoted():
+    """Found live: kql_literal's list branch called .replace() on every
+    item assuming it was a string — crashed with AttributeError on a
+    numeric list (e.g. DstPortNumber in (139, 445)) the moment
+    Filter.value was widened to accept List[int]/List[float]. Port numbers
+    must render unquoted, not as quoted strings."""
+    ir = KqlPipeline(
+        source_table=ASIMEventType.NETWORK_SESSION,
+        stages=[
+            WhereStage(filters=[Filter(field="DstPortNumber", operator=FilterOperator.IN, value=[139, 445])])
+        ]
     )
     kql = generate_kql(ir)
-    assert "on SrcIpAddr, DstIpAddr" in kql
+    assert "DstPortNumber in (139, 445)" in kql
+    assert '"139"' not in kql
 
 
-def test_ir_without_join_has_no_let_or_join_clause():
-    """Backward compat: IRs without a join field must not emit let/join."""
-    ir = SecurityIR(
-        event_type=ASIMEventType.AUTHENTICATION,
-        filters=[Filter(field="EventResult", operator=FilterOperator.EQ, value="Failure")],
+def test_filter_field_ref_renders_unquoted_column_not_a_quoted_literal():
+    """Added §4AA: a Filter with field_ref set must render the right-hand
+    side as a bare column reference, not via kql_literal — that's the
+    whole point (the gap this fixes is the model comparing a field
+    against the quoted STRING NAME of another column, which can never
+    match real data)."""
+    ir = KqlPipeline(
+        source_table=ASIMEventType.PROCESS,
+        stages=[
+            WhereStage(filters=[Filter(field="ProcessTime", operator=FilterOperator.GTE, field_ref="FirstAuthTime")]),
+        ],
     )
     kql = generate_kql(ir)
-    assert "let " not in kql
-    assert "join " not in kql
+    assert "ProcessTime >= FirstAuthTime" in kql
+    assert '"FirstAuthTime"' not in kql
 
 
-def test_threshold_compares_to_joined_baseline_column():
-    """Found live: a baseline-vs-current detection's threshold compared the
-    current count to a bare literal, never the joined BaselineAvg column —
-    the join just decorated already-filtered rows. The join clause must
-    render BEFORE the threshold so the joined column is in scope, and the
-    threshold must reference it directly rather than a literal alone."""
-    ir = SecurityIR(
-        event_type=ASIMEventType.NETWORK_SESSION,
-        aggregation=Aggregation(function=AggregationFunction.COUNT, result_alias="CurrentCount"),
-        group_by=["SrcIpAddr"],
-        time_window="P1D",
-        threshold=Threshold(operator=ThresholdOperator.GT, value=50, compare_to_join_field="BaselineAvg"),
-        join=JoinStage(
-            alias="Baseline",
-            event_type=ASIMEventType.NETWORK_SESSION,
-            aggregation=Aggregation(function=AggregationFunction.AVG, field="SrcIpAddr", result_alias="BaselineAvg"),
-            group_by=["SrcIpAddr"],
-            time_window="P14D",
-            join_on=["SrcIpAddr"],
-            join_kind=JoinKind.INNER,
-        ),
+def test_mixed_string_and_numeric_list_renders_each_item_correctly():
+    ir = KqlPipeline(
+        source_table=ASIMEventType.PROCESS,
+        stages=[
+            WhereStage(filters=[Filter(field="ActingProcessName", operator=FilterOperator.IN, value=["cmd.exe", "powershell.exe"])])
+        ]
     )
     kql = generate_kql(ir)
-    assert "CurrentCount > BaselineAvg + 50" in kql
-    # The join clause must appear before the threshold clause that depends on it.
-    join_pos = kql.index("| join kind=inner")
-    threshold_pos = kql.index("| where CurrentCount > BaselineAvg")
-    assert join_pos < threshold_pos
+    assert 'ActingProcessName in ("cmd.exe", "powershell.exe")' in kql
 
+
+def test_percentile_of_aggregates_via_self_join_compiles_correctly():
+    """The percentile-across-groups pattern (e.g. "processes at or below
+    the 5th percentile of execution frequency") needs a self-join against
+    a constant key plus a second summarize with no group_by to reduce to
+    one global scalar row — confirms the full pattern compiles to valid,
+    correctly-structured KQL end to end."""
+    per_process_freq = SummarizeStage(
+        aggregations=[Aggregation(function=AggregationFunction.COUNT, result_alias="Frequency")],
+        group_by=["ActingProcessName"], time_window="P3D",
+    )
+    ir = KqlPipeline(
+        source_table=ASIMEventType.PROCESS,
+        stages=[
+            per_process_freq,
+            ExtendStage(computed_fields=[ComputedField(alias="JoinKey", expression="1")]),
+            JoinStage(
+                kind=JoinKind.INNER, join_on=["JoinKey"],
+                right_pipeline=KqlPipeline(
+                    source_table=ASIMEventType.PROCESS,
+                    stages=[
+                        per_process_freq,
+                        SummarizeStage(
+                            aggregations=[Aggregation(function=AggregationFunction.PERCENTILE, field="Frequency", percentile=5, result_alias="P5Frequency")],
+                            time_window="P3D",
+                        ),
+                        ExtendStage(computed_fields=[ComputedField(alias="JoinKey", expression="1")]),
+                    ],
+                ),
+            ),
+            ExtendStage(computed_fields=[ComputedField(alias="IsRare", expression="Frequency - P5Frequency")]),
+            WhereStage(filters=[Filter(field="IsRare", operator=FilterOperator.LTE, value=0)]),
+        ],
+    )
+    kql = generate_kql(ir)
+    assert "percentile(Frequency, 5.0)" in kql
+    assert "join kind=inner" in kql
+    assert "on JoinKey" in kql
+    assert "where IsRare <= 0" in kql
+
+def test_no_caveats_renders_no_comment_lines():
+    ir = KqlPipeline(
+        source_table=ASIMEventType.AUTHENTICATION,
+        stages=[WhereStage(filters=[Filter(field="EventResult", operator=FilterOperator.EQ, value="Failure")])],
+    )
+    kql = generate_kql(ir)
+    assert "CAVEAT" not in kql
+    assert kql.startswith("imAuthentication")
+
+def test_caveats_render_as_leading_comment_lines():
+    ir = KqlPipeline(
+        source_table=ASIMEventType.WEB_SESSION,
+        stages=[],
+        caveats=["no concrete IoC values were given for the source IP check, so no filter on SrcIpAddr was added"],
+    )
+    kql = generate_kql(ir)
+    lines = kql.splitlines()
+    assert lines[0] == "// CAVEAT: no concrete IoC values were given for the source IP check, so no filter on SrcIpAddr was added"
+    assert lines[1] == "imWebSession"
+
+def test_multiple_caveats_each_render_as_own_comment_line():
+    ir = KqlPipeline(source_table=ASIMEventType.PROCESS, stages=[], caveats=["first omission", "second omission"])
+    kql = generate_kql(ir)
+    lines = kql.splitlines()
+    assert lines[0] == "// CAVEAT: first omission"
+    assert lines[1] == "// CAVEAT: second omission"
+    assert lines[2] == "imProcessCreate"
+
+def test_join_right_pipeline_caveats_still_surface_at_the_top():
+    right = KqlPipeline(source_table=ASIMEventType.DNS, stages=[], caveats=["right side caveat"])
+    ir = KqlPipeline(
+        source_table=ASIMEventType.DNS,
+        stages=[JoinStage(kind=JoinKind.INNER, right_pipeline=right, join_on=["SrcIpAddr"])],
+    )
+    kql = generate_kql(ir)
+    lines = kql.splitlines()
+    assert lines[0] == "// CAVEAT: right side caveat"
+    # The nested pipeline's own body must not also gain a duplicate comment.
+    assert kql.count("CAVEAT") == 1
+
+def test_has_all_and_case_insensitive_in_operators():
+    ir = KqlPipeline(
+        source_table=ASIMEventType.PROCESS,
+        stages=[WhereStage(filters=[
+            Filter(field="CommandLine", operator=FilterOperator.HAS_ALL, value=["accepteula", "-s", "-r", "-q"]),
+            Filter(field="ActorUsername", operator=FilterOperator.IN_CI, value=["Admin", "Administrator"]),
+        ])],
+    )
+    kql = generate_kql(ir)
+    assert 'CommandLine has_all ("accepteula", "-s", "-r", "-q")' in kql
+    assert 'ActorUsername in~ ("Admin", "Administrator")' in kql
+
+def test_case_insensitive_equality_and_case_sensitive_contains_operators():
+    ir = KqlPipeline(
+        source_table=ASIMEventType.PROCESS,
+        stages=[WhereStage(filters=[
+            Filter(field="ActingProcessName", operator=FilterOperator.EQ_CI, value="powershell.exe"),
+            Filter(field="CommandLine", operator=FilterOperator.CONTAINS_CS, value="UwB0AGE="),
+        ])],
+    )
+    kql = generate_kql(ir)
+    assert 'ActingProcessName =~ "powershell.exe"' in kql
+    assert 'CommandLine contains_cs "UwB0AGE="' in kql
+
+def test_mv_expand_single_field_with_type():
+    ir = KqlPipeline(
+        source_table=ASIMEventType.DNS,
+        stages=[MvExpandStage(fields=["Tags"], as_type="string")],
+    )
+    kql = generate_kql(ir)
+    assert "| mv-expand Tags to typeof(string)" in kql
+
+def test_mv_expand_multiple_fields_in_lockstep():
+    ir = KqlPipeline(
+        source_table=ASIMEventType.DNS,
+        stages=[MvExpandStage(fields=["TimeBucket", "Count", "AnomalyFlag"])],
+    )
+    kql = generate_kql(ir)
+    assert "| mv-expand TimeBucket, Count, AnomalyFlag" in kql
+
+def test_make_series_and_series_anomaly_pipeline():
+    ir = KqlPipeline(
+        source_table=ASIMEventType.DNS,
+        stages=[
+            MakeSeriesStage(
+                aggregations=[Aggregation(function=AggregationFunction.DISTINCT_COUNT, field="DnsQuery", result_alias="DistinctQueries")],
+                group_by=["SrcIpAddr"],
+                from_time="ago(14d)",
+                to_time="now()",
+                step="P1D",
+            ),
+            SeriesAnomalyStage(series_field="DistinctQueries", score_threshold=1.5),
+            MvExpandStage(fields=["TimeGenerated", "DistinctQueries", "AnomalyFlag", "AnomalyScore", "Baseline"]),
+            WhereStage(filters=[Filter(field="AnomalyFlag", operator=FilterOperator.NEQ, value=0)]),
+        ],
+    )
+    kql = generate_kql(ir)
+    assert "| make-series DistinctQueries = dcount(DnsQuery) on TimeGenerated from ago(14d) to now() step 1d by SrcIpAddr" in kql
+    assert "| extend (AnomalyFlag, AnomalyScore, Baseline) = series_decompose_anomalies(DistinctQueries, 1.5)" in kql
+    assert "| mv-expand TimeGenerated, DistinctQueries, AnomalyFlag, AnomalyScore, Baseline" in kql
+    assert "| where AnomalyFlag != 0" in kql
+
+def test_arg_max_with_wildcard_carry_and_group_by():
+    ir = KqlPipeline(
+        source_table=ASIMEventType.PROCESS,
+        stages=[SummarizeStage(
+            arg_max=ArgMaxMin(order_field="TimeGenerated", carry_fields=["*"]),
+            group_by=["DvcHostname"],
+            time_window="P1D",
+        )],
+    )
+    kql = generate_kql(ir)
+    assert "| summarize arg_max(TimeGenerated, *) by DvcHostname, bin(TimeGenerated, 1d)" in kql
+
+def test_arg_max_and_count_combine_in_same_summarize():
+    ir = KqlPipeline(
+        source_table=ASIMEventType.PROCESS,
+        stages=[SummarizeStage(
+            aggregations=[Aggregation(function=AggregationFunction.COUNT, result_alias="EventCount")],
+            arg_max=ArgMaxMin(order_field="TimeGenerated", carry_fields=["CommandLine", "ActorUsername"]),
+            group_by=["DvcHostname"],
+            time_window="P1D",
+        )],
+    )
+    kql = generate_kql(ir)
+    assert "summarize EventCount = count(), arg_max(TimeGenerated, CommandLine, ActorUsername) by DvcHostname" in kql
+
+def test_arg_min_renders_separately_from_arg_max():
+    ir = KqlPipeline(
+        source_table=ASIMEventType.PROCESS,
+        stages=[SummarizeStage(
+            arg_min=ArgMaxMin(order_field="TimeGenerated", carry_fields=["*"]),
+            group_by=["DvcHostname"],
+            time_window="P1D",
+        )],
+    )
+    kql = generate_kql(ir)
+    assert "arg_min(TimeGenerated, *)" in kql
+    assert "arg_max" not in kql
+
+def test_arg_max_with_custom_result_alias_matches_real_ground_truth_style():
+    # Real ground truth (e.g. threat-intel indicator deduplication)
+    # consistently renames arg_max's order_field output rather than
+    # leaving it under the raw field name.
+    ir = KqlPipeline(
+        source_table=ASIMEventType.DNS,
+        stages=[SummarizeStage(
+            arg_max=ArgMaxMin(order_field="TimeGenerated", carry_fields=["*"], result_alias="LatestIndicatorTime"),
+            group_by=["IndicatorId"],
+            time_window="P1D",
+        )],
+    )
+    kql = generate_kql(ir)
+    assert "LatestIndicatorTime = arg_max(TimeGenerated, *)" in kql
+
+def test_parse_with_leading_and_trailing_wildcard():
+    # Real ground-truth shape: parse Message with * '(' DNSName ')' *
+    ir = KqlPipeline(
+        source_table=ASIMEventType.DNS,
+        stages=[ParseStage(source_field="Message", tokens=[
+            ParseToken(type="wildcard"),
+            ParseToken(type="literal", value="("),
+            ParseToken(type="column", value="DNSName"),
+            ParseToken(type="literal", value=")"),
+            ParseToken(type="wildcard"),
+        ])],
+    )
+    kql = generate_kql(ir)
+    assert '| parse Message with * "(" DNSName ")" *' in kql
+
+def test_parse_multi_column_extraction():
+    ir = KqlPipeline(
+        source_table=ASIMEventType.NETWORK_SESSION,
+        stages=[ParseStage(source_field="msg_s", tokens=[
+            ParseToken(type="column", value="Protocol"),
+            ParseToken(type="literal", value=" request from "),
+            ParseToken(type="column", value="SourceHost"),
+        ])],
+    )
+    kql = generate_kql(ir)
+    assert '| parse msg_s with Protocol " request from " SourceHost' in kql

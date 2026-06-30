@@ -1,0 +1,401 @@
+[1/45] 61988db3-0565-49b5-b8e3-747195baac6e-original
+[2/45] 61988db3-0565-49b5-b8e3-747195baac6e-casual
+[3/45] 61988db3-0565-49b5-b8e3-747195baac6e-sop
+parse attempt 1/1 failed for IRBuilderAgent: Failed to parse KqlPipeline from completion {"source_table": "ProcessEvent", "stages": [{"type": "where", "filters": [{"type": "group", "conditions": [{"field": "ProcessName", "operator": "in", "type": "filter", "value": ["cmd.exe", "ftp.exe", "schtasks.exe", "powershell.exe", "rundll32.exe", "regsvr32.exe", "msiexec.exe"]}]}, {"field": "CommandLine", "operator": "contains", "type": "filter", "value": "recycler"}]}]}. Got: 17 validation errors for KqlPipeline
+stages.0.WhereStage.filters.0.Filter.type
+  Input should be 'filter' [type=literal_error, input_value='group', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.WhereStage.filters.0.Filter.field
+  Field required [type=missing, input_value={'type': 'group', 'condit....exe', 'msiexec.exe']}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.WhereStage.filters.0.Filter.operator
+  Field required [type=missing, input_value={'type': 'group', 'condit....exe', 'msiexec.exe']}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.WhereStage.filters.0.Filter.value
+  Field required [type=missing, input_value={'type': 'group', 'condit....exe', 'msiexec.exe']}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.WhereStage.filters.0.FilterGroup.conditions
+  List should have at least 2 items after validation, not 1 [type=too_short, input_value=[{'field': 'ProcessName',...2.exe', 'msiexec.exe']}], input_type=list]
+    For further information visit https://errors.pydantic.dev/2.13/v/too_short
+stages.0.SummarizeStage.type
+  Input should be 'summarize' [type=literal_error, input_value='where', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.ExtendStage.type
+  Input should be 'extend' [type=literal_error, input_value='where', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.JoinStage.type
+  Input should be 'join' [type=literal_error, input_value='where', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.JoinStage.right_pipeline
+  Field required [type=missing, input_value={'type': 'where', 'filter..., 'value': 'recycler'}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.JoinStage.join_on
+  Field required [type=missing, input_value={'type': 'where', 'filter..., 'value': 'recycler'}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.UnionStage.type
+  Input should be 'union' [type=literal_error, input_value='where', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.UnionStage.tables
+  Field required [type=missing, input_value={'type': 'where', 'filter..., 'value': 'recycler'}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.ProjectStage.type
+  Input should be 'project' [type=literal_error, input_value='where', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.ProjectStage.fields
+  Field required [type=missing, input_value={'type': 'where', 'filter..., 'value': 'recycler'}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.TopStage.type
+  Input should be 'top' [type=literal_error, input_value='where', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.TopStage.limit
+  Field required [type=missing, input_value={'type': 'where', 'filter..., 'value': 'recycler'}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.TopStage.by_field
+  Field required [type=missing, input_value={'type': 'where', 'filter..., 'value': 'recycler'}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+For troubleshooting, visit: https://docs.langchain.com/oss/python/langchain/errors/OUTPUT_PARSING_FAILURE 
+[4/45] 5b6ae038-f66e-4f74-9315-df52fd492be4-original
+[5/45] 5b6ae038-f66e-4f74-9315-df52fd492be4-casual
+[6/45] 5b6ae038-f66e-4f74-9315-df52fd492be4-sop
+[7/45] bd89c7a0-76cb-4fa1-bc64-c366687cda9e-original
+[8/45] bd89c7a0-76cb-4fa1-bc64-c366687cda9e-casual
+[9/45] bd89c7a0-76cb-4fa1-bc64-c366687cda9e-sop
+[10/45] 7b3ed03a-7474-4dad-9c6a-92e7b69f6584-original
+[11/45] 7b3ed03a-7474-4dad-9c6a-92e7b69f6584-casual
+[12/45] 7b3ed03a-7474-4dad-9c6a-92e7b69f6584-sop
+parse attempt 1/1 failed for IRBuilderAgent: Failed to parse KqlPipeline from completion {"source_table": "ProcessEvent", "stages": [{"type": "where", "filters": [{"type": "filter", "field": "ProcessName", "operator": "==", "value": "net.exe"}, {"type": "group", "conditions": [{"type": "filter", "field": "CommandLine", "operator": "has_any", "value": ["user", "group"]}]}, {"type": "group", "conditions": [{"type": "filter", "field": "CommandLine", "operator": "has_any", "value": ["/do", "/domain"]}]}]}]}. Got: 22 validation errors for KqlPipeline
+stages.0.WhereStage.filters.1.Filter.type
+  Input should be 'filter' [type=literal_error, input_value='group', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.WhereStage.filters.1.Filter.field
+  Field required [type=missing, input_value={'type': 'group', 'condit...e': ['user', 'group']}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.WhereStage.filters.1.Filter.operator
+  Field required [type=missing, input_value={'type': 'group', 'condit...e': ['user', 'group']}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.WhereStage.filters.1.Filter.value
+  Field required [type=missing, input_value={'type': 'group', 'condit...e': ['user', 'group']}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.WhereStage.filters.1.FilterGroup.conditions
+  List should have at least 2 items after validation, not 1 [type=too_short, input_value=[{'type': 'filter', 'fiel...ue': ['user', 'group']}], input_type=list]
+    For further information visit https://errors.pydantic.dev/2.13/v/too_short
+stages.0.WhereStage.filters.2.Filter.type
+  Input should be 'filter' [type=literal_error, input_value='group', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.WhereStage.filters.2.Filter.field
+  Field required [type=missing, input_value={'type': 'group', 'condit...': ['/do', '/domain']}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.WhereStage.filters.2.Filter.operator
+  Field required [type=missing, input_value={'type': 'group', 'condit...': ['/do', '/domain']}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.WhereStage.filters.2.Filter.value
+  Field required [type=missing, input_value={'type': 'group', 'condit...': ['/do', '/domain']}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.WhereStage.filters.2.FilterGroup.conditions
+  List should have at least 2 items after validation, not 1 [type=too_short, input_value=[{'type': 'filter', 'fiel...e': ['/do', '/domain']}], input_type=list]
+    For further information visit https://errors.pydantic.dev/2.13/v/too_short
+stages.0.SummarizeStage.type
+  Input should be 'summarize' [type=literal_error, input_value='where', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.ExtendStage.type
+  Input should be 'extend' [type=literal_error, input_value='where', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.JoinStage.type
+  Input should be 'join' [type=literal_error, input_value='where', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.JoinStage.right_pipeline
+  Field required [type=missing, input_value={'type': 'where', 'filter... ['/do', '/domain']}]}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.JoinStage.join_on
+  Field required [type=missing, input_value={'type': 'where', 'filter... ['/do', '/domain']}]}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.UnionStage.type
+  Input should be 'union' [type=literal_error, input_value='where', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.UnionStage.tables
+  Field required [type=missing, input_value={'type': 'where', 'filter... ['/do', '/domain']}]}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.ProjectStage.type
+  Input should be 'project' [type=literal_error, input_value='where', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.ProjectStage.fields
+  Field required [type=missing, input_value={'type': 'where', 'filter... ['/do', '/domain']}]}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.TopStage.type
+  Input should be 'top' [type=literal_error, input_value='where', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.TopStage.limit
+  Field required [type=missing, input_value={'type': 'where', 'filter... ['/do', '/domain']}]}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.TopStage.by_field
+  Field required [type=missing, input_value={'type': 'where', 'filter... ['/do', '/domain']}]}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+For troubleshooting, visit: https://docs.langchain.com/oss/python/langchain/errors/OUTPUT_PARSING_FAILURE 
+[13/45] 4500a2ff-455b-4ee7-a21d-5ac5c7c9ea87-original
+[14/45] 4500a2ff-455b-4ee7-a21d-5ac5c7c9ea87-casual
+[15/45] 4500a2ff-455b-4ee7-a21d-5ac5c7c9ea87-sop
+[16/45] 4e3af8e3-a29f-4eec-ac25-55517dca6512-original
+[17/45] 4e3af8e3-a29f-4eec-ac25-55517dca6512-casual
+[18/45] 4e3af8e3-a29f-4eec-ac25-55517dca6512-sop
+[19/45] 365a889c-ae0f-461d-bdf1-d6ce11d0ef6f-original
+[20/45] 365a889c-ae0f-461d-bdf1-d6ce11d0ef6f-casual
+[21/45] 365a889c-ae0f-461d-bdf1-d6ce11d0ef6f-sop
+[22/45] c4956c0b-4527-406c-b135-ef44002e1e70-original
+[23/45] c4956c0b-4527-406c-b135-ef44002e1e70-casual
+[24/45] c4956c0b-4527-406c-b135-ef44002e1e70-sop
+[25/45] b35f6633-0d18-494c-a5e4-2828daf442bf-original
+[26/45] b35f6633-0d18-494c-a5e4-2828daf442bf-casual
+[27/45] b35f6633-0d18-494c-a5e4-2828daf442bf-sop
+[28/45] 8717e498-7b5d-4e23-9e7c-fa4913dbfd79-original
+[29/45] 8717e498-7b5d-4e23-9e7c-fa4913dbfd79-casual
+[30/45] 8717e498-7b5d-4e23-9e7c-fa4913dbfd79-sop
+[31/45] a61e9fc1-dd9e-4588-a497-2a34a1d811bf-original
+[32/45] a61e9fc1-dd9e-4588-a497-2a34a1d811bf-casual
+parse attempt 1/1 failed for IRBuilderAgent: Failed to parse KqlPipeline from completion {"source_table": "NetworkSessionEvent", "stages": [{"type": "where", "filters": [{"type": "group", "conditions": [{"type": "and_group", "conditions": [{"type": "filter", "field": "NetworkApplicationProtocol", "operator": "==", "value": "dns"}, {"type": "filter", "field": "DstPortNumber", "operator": "!=", "value": 53}]}]}]}]}. Got: 17 validation errors for KqlPipeline
+stages.0.WhereStage.filters.0.Filter.type
+  Input should be 'filter' [type=literal_error, input_value='group', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.WhereStage.filters.0.Filter.field
+  Field required [type=missing, input_value={'type': 'group', 'condit...: '!=', 'value': 53}]}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.WhereStage.filters.0.Filter.operator
+  Field required [type=missing, input_value={'type': 'group', 'condit...: '!=', 'value': 53}]}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.WhereStage.filters.0.Filter.value
+  Field required [type=missing, input_value={'type': 'group', 'condit...: '!=', 'value': 53}]}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.WhereStage.filters.0.FilterGroup.conditions
+  List should have at least 2 items after validation, not 1 [type=too_short, input_value=[{'type': 'and_group', 'c...': '!=', 'value': 53}]}], input_type=list]
+    For further information visit https://errors.pydantic.dev/2.13/v/too_short
+stages.0.SummarizeStage.type
+  Input should be 'summarize' [type=literal_error, input_value='where', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.ExtendStage.type
+  Input should be 'extend' [type=literal_error, input_value='where', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.JoinStage.type
+  Input should be 'join' [type=literal_error, input_value='where', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.JoinStage.right_pipeline
+  Field required [type=missing, input_value={'type': 'where', 'filter...'!=', 'value': 53}]}]}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.JoinStage.join_on
+  Field required [type=missing, input_value={'type': 'where', 'filter...'!=', 'value': 53}]}]}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.UnionStage.type
+  Input should be 'union' [type=literal_error, input_value='where', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.UnionStage.tables
+  Field required [type=missing, input_value={'type': 'where', 'filter...'!=', 'value': 53}]}]}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.ProjectStage.type
+  Input should be 'project' [type=literal_error, input_value='where', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.ProjectStage.fields
+  Field required [type=missing, input_value={'type': 'where', 'filter...'!=', 'value': 53}]}]}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.TopStage.type
+  Input should be 'top' [type=literal_error, input_value='where', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.TopStage.limit
+  Field required [type=missing, input_value={'type': 'where', 'filter...'!=', 'value': 53}]}]}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.TopStage.by_field
+  Field required [type=missing, input_value={'type': 'where', 'filter...'!=', 'value': 53}]}]}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+For troubleshooting, visit: https://docs.langchain.com/oss/python/langchain/errors/OUTPUT_PARSING_FAILURE 
+parse attempt 1/1 failed for IRBuilderAgent: Failed to parse KqlPipeline from completion {"source_table": "NetworkSessionEvent", "stages": [{"type": "where", "filters": [{"type": "and_group", "conditions": [{"type": "filter", "field": "NetworkApplicationProtocol", "operator": "==", "value": "dns"}, {"type": "filter", "field": "DstPortNumber", "operator": "!=", "value": 53}]}]}]}. Got: 17 validation errors for KqlPipeline
+stages.0.WhereStage.filters.0.Filter.type
+  Input should be 'filter' [type=literal_error, input_value='and_group', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.WhereStage.filters.0.Filter.field
+  Field required [type=missing, input_value={'type': 'and_group', 'co...r': '!=', 'value': 53}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.WhereStage.filters.0.Filter.operator
+  Field required [type=missing, input_value={'type': 'and_group', 'co...r': '!=', 'value': 53}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.WhereStage.filters.0.Filter.value
+  Field required [type=missing, input_value={'type': 'and_group', 'co...r': '!=', 'value': 53}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.WhereStage.filters.0.FilterGroup.type
+  Input should be 'group' [type=literal_error, input_value='and_group', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.SummarizeStage.type
+  Input should be 'summarize' [type=literal_error, input_value='where', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.ExtendStage.type
+  Input should be 'extend' [type=literal_error, input_value='where', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.JoinStage.type
+  Input should be 'join' [type=literal_error, input_value='where', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.JoinStage.right_pipeline
+  Field required [type=missing, input_value={'type': 'where', 'filter...: '!=', 'value': 53}]}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.JoinStage.join_on
+  Field required [type=missing, input_value={'type': 'where', 'filter...: '!=', 'value': 53}]}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.UnionStage.type
+  Input should be 'union' [type=literal_error, input_value='where', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.UnionStage.tables
+  Field required [type=missing, input_value={'type': 'where', 'filter...: '!=', 'value': 53}]}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.ProjectStage.type
+  Input should be 'project' [type=literal_error, input_value='where', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.ProjectStage.fields
+  Field required [type=missing, input_value={'type': 'where', 'filter...: '!=', 'value': 53}]}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.TopStage.type
+  Input should be 'top' [type=literal_error, input_value='where', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.TopStage.limit
+  Field required [type=missing, input_value={'type': 'where', 'filter...: '!=', 'value': 53}]}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.TopStage.by_field
+  Field required [type=missing, input_value={'type': 'where', 'filter...: '!=', 'value': 53}]}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+For troubleshooting, visit: https://docs.langchain.com/oss/python/langchain/errors/OUTPUT_PARSING_FAILURE 
+parse attempt 1/1 failed for IRBuilderAgent: Failed to parse KqlPipeline from completion {"source_table": "NetworkSessionEvent", "stages": [{"type": "where", "filters": [{"type": "group", "conditions": [{"type": "and_group", "conditions": [{"type": "filter", "field": "NetworkApplicationProtocol", "operator": "==", "value": "dns"}, {"type": "filter", "field": "DstPortNumber", "operator": "!=", "value": 53}]}]}]}]}. Got: 17 validation errors for KqlPipeline
+stages.0.WhereStage.filters.0.Filter.type
+  Input should be 'filter' [type=literal_error, input_value='group', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.WhereStage.filters.0.Filter.field
+  Field required [type=missing, input_value={'type': 'group', 'condit...: '!=', 'value': 53}]}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.WhereStage.filters.0.Filter.operator
+  Field required [type=missing, input_value={'type': 'group', 'condit...: '!=', 'value': 53}]}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.WhereStage.filters.0.Filter.value
+  Field required [type=missing, input_value={'type': 'group', 'condit...: '!=', 'value': 53}]}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.WhereStage.filters.0.FilterGroup.conditions
+  List should have at least 2 items after validation, not 1 [type=too_short, input_value=[{'type': 'and_group', 'c...': '!=', 'value': 53}]}], input_type=list]
+    For further information visit https://errors.pydantic.dev/2.13/v/too_short
+stages.0.SummarizeStage.type
+  Input should be 'summarize' [type=literal_error, input_value='where', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.ExtendStage.type
+  Input should be 'extend' [type=literal_error, input_value='where', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.JoinStage.type
+  Input should be 'join' [type=literal_error, input_value='where', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.JoinStage.right_pipeline
+  Field required [type=missing, input_value={'type': 'where', 'filter...'!=', 'value': 53}]}]}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.JoinStage.join_on
+  Field required [type=missing, input_value={'type': 'where', 'filter...'!=', 'value': 53}]}]}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.UnionStage.type
+  Input should be 'union' [type=literal_error, input_value='where', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.UnionStage.tables
+  Field required [type=missing, input_value={'type': 'where', 'filter...'!=', 'value': 53}]}]}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.ProjectStage.type
+  Input should be 'project' [type=literal_error, input_value='where', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.ProjectStage.fields
+  Field required [type=missing, input_value={'type': 'where', 'filter...'!=', 'value': 53}]}]}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.TopStage.type
+  Input should be 'top' [type=literal_error, input_value='where', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.TopStage.limit
+  Field required [type=missing, input_value={'type': 'where', 'filter...'!=', 'value': 53}]}]}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.TopStage.by_field
+  Field required [type=missing, input_value={'type': 'where', 'filter...'!=', 'value': 53}]}]}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+For troubleshooting, visit: https://docs.langchain.com/oss/python/langchain/errors/OUTPUT_PARSING_FAILURE 
+parse attempt 1/1 failed for IRBuilderAgent: Failed to parse KqlPipeline from completion {"source_table": "NetworkSessionEvent", "stages": [{"type": "where", "filters": [{"type": "and_group", "conditions": [{"type": "filter", "field": "NetworkApplicationProtocol", "operator": "==", "value": "dns"}, {"type": "filter", "field": "DstPortNumber", "operator": "!=", "value": 53}]}]}]}. Got: 17 validation errors for KqlPipeline
+stages.0.WhereStage.filters.0.Filter.type
+  Input should be 'filter' [type=literal_error, input_value='and_group', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.WhereStage.filters.0.Filter.field
+  Field required [type=missing, input_value={'type': 'and_group', 'co...r': '!=', 'value': 53}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.WhereStage.filters.0.Filter.operator
+  Field required [type=missing, input_value={'type': 'and_group', 'co...r': '!=', 'value': 53}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.WhereStage.filters.0.Filter.value
+  Field required [type=missing, input_value={'type': 'and_group', 'co...r': '!=', 'value': 53}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.WhereStage.filters.0.FilterGroup.type
+  Input should be 'group' [type=literal_error, input_value='and_group', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.SummarizeStage.type
+  Input should be 'summarize' [type=literal_error, input_value='where', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.ExtendStage.type
+  Input should be 'extend' [type=literal_error, input_value='where', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.JoinStage.type
+  Input should be 'join' [type=literal_error, input_value='where', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.JoinStage.right_pipeline
+  Field required [type=missing, input_value={'type': 'where', 'filter...: '!=', 'value': 53}]}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.JoinStage.join_on
+  Field required [type=missing, input_value={'type': 'where', 'filter...: '!=', 'value': 53}]}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.UnionStage.type
+  Input should be 'union' [type=literal_error, input_value='where', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.UnionStage.tables
+  Field required [type=missing, input_value={'type': 'where', 'filter...: '!=', 'value': 53}]}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.ProjectStage.type
+  Input should be 'project' [type=literal_error, input_value='where', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.ProjectStage.fields
+  Field required [type=missing, input_value={'type': 'where', 'filter...: '!=', 'value': 53}]}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.TopStage.type
+  Input should be 'top' [type=literal_error, input_value='where', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.13/v/literal_error
+stages.0.TopStage.limit
+  Field required [type=missing, input_value={'type': 'where', 'filter...: '!=', 'value': 53}]}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+stages.0.TopStage.by_field
+  Field required [type=missing, input_value={'type': 'where', 'filter...: '!=', 'value': 53}]}]}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/missing
+For troubleshooting, visit: https://docs.langchain.com/oss/python/langchain/errors/OUTPUT_PARSING_FAILURE 
+[33/45] a61e9fc1-dd9e-4588-a497-2a34a1d811bf-sop
+[34/45] a59ba76c-0205-4966-948e-3d5640140688-original
+[35/45] a59ba76c-0205-4966-948e-3d5640140688-casual
+[36/45] a59ba76c-0205-4966-948e-3d5640140688-sop
+[37/45] 813ccf3b-0321-4622-b0bc-63518fd14454-original
+[38/45] 813ccf3b-0321-4622-b0bc-63518fd14454-casual
+[39/45] 813ccf3b-0321-4622-b0bc-63518fd14454-sop
+[40/45] c99cf650-c53b-4c4c-9671-7d7500191a10-original
+[41/45] c99cf650-c53b-4c4c-9671-7d7500191a10-casual
+[42/45] c99cf650-c53b-4c4c-9671-7d7500191a10-sop
+[43/45] 43c2832e-6c01-4dc1-bd9e-bc3f330c2b31-original
+[44/45] 43c2832e-6c01-4dc1-bd9e-bc3f330c2b31-casual
+[45/45] 43c2832e-6c01-4dc1-bd9e-bc3f330c2b31-sop
+
+============================================================
+Ran 45 test pairs — Summary:
+  SVR: System A = 100.0%  |  System B = 95.6%
+  FVR: System A = 8.9%  |  System B = 88.9%
+  RRR: 92.0%
+  Per-tier: {
+    "simple": {
+        "total": 9,
+        "sys_b_success": 9
+    },
+    "complex": {
+        "total": 27,
+        "sys_b_success": 26
+    },
+    "moderate": {
+        "total": 9,
+        "sys_b_success": 8
+    }
+}
+  SVR McNemar p = 0.5
+  FVR McNemar p = 1.3647818714582528e-08
+============================================================

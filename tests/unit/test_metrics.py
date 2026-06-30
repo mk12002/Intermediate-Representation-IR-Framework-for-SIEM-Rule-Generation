@@ -36,6 +36,27 @@ def test_fvr_does_not_flag_multiple_summarize_aliases():
     assert field_validity_rate([kql], ASIM_AUTH_FIELDS) == 1.0
 
 
+def test_fvr_does_not_flag_make_series_and_series_decompose_anomalies_syntax():
+    """make-series tokenizes as "make"/"series" (the hyphen breaks the
+    word-boundary tokenizer into two words), and series_decompose_
+    anomalies()'s tuple-destructuring output ("(A, B, C) = ...") isn't a
+    single-name assignment _ASSIGNMENT_TARGET's pattern matches — found
+    live re-measuring a RAG A/B comparison: an otherwise field-valid
+    make-series query was scored invalid, the same FVR-undercounting
+    bug class already fixed once for "percentile"."""
+    kql = (
+        "imDns\n"
+        "| make-series DailyDnsQueryCount = dcount(DnsQuery) on TimeGenerated "
+        "from ago(14d) to now() step 1d by SrcIpAddr\n"
+        "| extend (AnomalyFlag, AnomalyScore, Baseline) = "
+        "series_decompose_anomalies(DailyDnsQueryCount, 1.5)\n"
+        "| mv-expand TimeGenerated, DailyDnsQueryCount, AnomalyFlag, AnomalyScore, Baseline\n"
+        "| where AnomalyFlag == 1"
+    )
+    asim_dns_fields = {"DnsQuery", "SrcIpAddr", "TimeGenerated"}
+    assert field_validity_rate([kql], asim_dns_fields) == 1.0
+
+
 def test_fvr_flags_hallucinated_field():
     kql = 'imAuthentication\n| where SourceIP == "1.2.3.4"'
     assert field_validity_rate([kql], ASIM_AUTH_FIELDS) == 0.0

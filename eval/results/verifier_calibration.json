@@ -1,0 +1,104 @@
+[
+  {
+    "rule_id": "e2559891",
+    "manual_pass": true,
+    "verifier_pass": true,
+    "verifier_issue": ""
+  },
+  {
+    "rule_id": "25ed500d",
+    "manual_pass": true,
+    "verifier_pass": true,
+    "verifier_issue": ""
+  },
+  {
+    "rule_id": "50f0cdfb",
+    "manual_pass": true,
+    "verifier_pass": false,
+    "verifier_issue": "The query incorrectly aggregates the baseline count by 14-day bins instead of aggregating over the entire 14-day period to compute a proper baseline average per day; this causes the baseline average to be based on a single 14-day count divided by 14 rather than the average daily count over 14 days."
+  },
+  {
+    "rule_id": "2d1a3e86",
+    "manual_pass": false,
+    "verifier_pass": false,
+    "verifier_issue": "The query filters on CommandLine containing the literal string 'CVE-2022-29972', which is not a concrete suspicious command line pattern or process name and does not implement detection of command injection or post-exploitation activity as described."
+  },
+  {
+    "rule_id": "cc8aeea6",
+    "manual_pass": true,
+    "verifier_pass": true,
+    "verifier_issue": ""
+  },
+  {
+    "rule_id": "70e2a349",
+    "manual_pass": true,
+    "verifier_pass": true,
+    "verifier_issue": ""
+  },
+  {
+    "rule_id": "f090f8f4",
+    "manual_pass": false,
+    "verifier_pass": true,
+    "verifier_issue": ""
+  },
+  {
+    "rule_id": "bb30abbc",
+    "manual_pass": true,
+    "verifier_pass": false,
+    "verifier_issue": "The query filters for Process exactly equal to \"xcopy\", but the description says it looks for use of tools like xcopy and renamed archiving tools, implying a broader search including renamed tools, not just exact matches to \"xcopy\"."
+  },
+  {
+    "rule_id": "9b72769e",
+    "manual_pass": true,
+    "verifier_pass": false,
+    "verifier_issue": "The query uses the field 'ActorScope' to get the max host risk score, but the description specifies prioritizing hosts with higher risk scores, which should come from a host risk score field, not 'ActorScope'."
+  },
+  {
+    "rule_id": "50eb4cbd",
+    "manual_pass": true,
+    "verifier_pass": false,
+    "verifier_issue": "The query operates on imFileEvent looking for FilePath containing 'SysAid', but the description requires detecting potential webshell creation after exploitation, which implies looking for file creation or modification events related to webshells, not just any SysAid file event."
+  },
+  {
+    "rule_id": "6a4dbcf8",
+    "manual_pass": true,
+    "verifier_pass": true,
+    "verifier_issue": ""
+  },
+  {
+    "rule_id": "01191239",
+    "manual_pass": false,
+    "verifier_pass": true,
+    "verifier_issue": ""
+  },
+  {
+    "rule_id": "dedb8fb9",
+    "manual_pass": true,
+    "verifier_pass": true,
+    "verifier_issue": ""
+  },
+  {
+    "rule_id": "c6608467",
+    "manual_pass": true,
+    "verifier_pass": true,
+    "verifier_issue": ""
+  },
+  {
+    "rule_id": "767b8f6d",
+    "manual_pass": true,
+    "verifier_pass": true,
+    "verifier_issue": ""
+  },
+  {
+    "rule_id": "67775878",
+    "manual_pass": true,
+    "verifier_pass": true,
+    "verifier_issue": ""
+  },
+  {
+    "rule_id": "f82c89fa",
+    "manual_pass": true,
+    "verifier_pass": true,
+    "verifier_issue": ""
+  }
+]

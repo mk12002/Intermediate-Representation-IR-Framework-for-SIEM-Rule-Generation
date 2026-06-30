@@ -5,7 +5,16 @@ from src.validation.syntax_validators import strip_comments_and_strings, validat
 
 _TOKEN = re.compile(r"\b([A-Za-z_][A-Za-z0-9_]*)\b")
 _LET_BINDING = re.compile(r"\blet\s+(\w+)\s*=")
-_ASSIGNMENT_TARGET = re.compile(r"(?:summarize|extend|project|,)\s+(\w+)\s*=(?!=)")
+_ASSIGNMENT_TARGET = re.compile(r"(?:summarize|extend|project|make-series|,)\s+(\w+)\s*=(?!=)")
+# series_decompose_anomalies' own output shape: "(A, B, C) = series_decompose_anomalies(...)"
+# — a tuple-destructuring assignment _ASSIGNMENT_TARGET's single-\w+ pattern
+# doesn't match, leaving all 3 user-chosen alias names wrongly treated as
+# unresolved schema-field references. Found live re-measuring a RAG A/B
+# comparison: this made an otherwise-correct make-series/series_decompose_
+# anomalies query look field-invalid, undercounting FVR for every query
+# using this construct (added §4X, after this file was last updated) —
+# the same bug class already found and fixed once for "percentile".
+_TUPLE_ASSIGNMENT_TARGETS = re.compile(r"\(\s*([\w\s,]+?)\s*\)\s*=(?!=)")
 _TABLE_REFERENCE = re.compile(r"^\s*(_?\w+)")
 # Parser-call kwargs, e.g. _Im_Dns(responsecodename='NXDOMAIN', starttime=ago(1d))
 _PARSER_KWARG = re.compile(r"[(,]\s*([a-z][a-z0-9_]*)\s*=(?!=)")
@@ -37,7 +46,7 @@ _KQL_KEYWORDS = {
     "let", "where", "summarize", "project", "extend", "join", "bin", "by", "and", "or", "not",
     "contains", "startswith", "endswith", "in", "has", "has_any", "has_all",
     "count", "count_", "dcount", "dcountif", "countif", "sum", "avg", "min", "max",
-    "make_set", "make_list", "arg_max", "arg_min", "ago", "now", "strcat", "split",
+    "make_set", "make_list", "percentile", "percentiles", "arg_max", "arg_min", "ago", "now", "strcat", "split",
     "tostring", "toint", "tolong", "todatetime", "todynamic", "dynamic", "isnotempty",
     "isempty", "isnull", "isnotnull", "format_datetime", "case", "iff", "extract",
     "parse", "true", "false", "kind", "inner", "outer", "leftouter", "on", "render",
@@ -52,18 +61,32 @@ _KQL_KEYWORDS = {
     "hassuffix", "hasprefix", "notcontains", "matches", "regex", "away", "expand",
     "mv", "leftanti", "rightouter", "fullouter", "anti", "semi", "between",
     "ipv6_is_match", "geo_info_from_ip_address", "indexof_regex", "tostring_array",
+    # make-series tokenizes as "make"/"series" (the hyphen breaks _TOKEN's
+    # word-boundary match into two separate tokens), plus its "from ... to
+    # ... step" time-range clause and series_decompose_anomalies() itself
+    # — found live, the same FVR-undercounting bug class already fixed
+    # once for "percentile" (RESULTS_DRAFT.md), recurring for this
+    # construct (added §4X, after this keyword list was last updated).
+    "make", "series", "from", "to", "series_decompose_anomalies",
 }
 
 
 def _known_local_names(query: str) -> set[str]:
     """Names defined within the query itself — `let` bindings,
-    `summarize`/`extend` assignment aliases, and parser-call kwargs (e.g.
-    `responsecodename=` in `_Im_Dns(responsecodename='NXDOMAIN')`) — none of
-    which are schema fields."""
+    `summarize`/`extend` assignment aliases (single-name or the
+    tuple-destructuring form series_decompose_anomalies() needs, e.g.
+    "(AnomalyFlag, AnomalyScore, Baseline) = ..."), and parser-call
+    kwargs (e.g. `responsecodename=` in
+    `_Im_Dns(responsecodename='NXDOMAIN')`) — none of which are schema
+    fields."""
+    tuple_targets = set()
+    for group in _TUPLE_ASSIGNMENT_TARGETS.findall(query):
+        tuple_targets.update(name.strip() for name in group.split(","))
     return (
         set(_LET_BINDING.findall(query))
         | set(_ASSIGNMENT_TARGET.findall(query))
         | set(_PARSER_KWARG.findall(query))
+        | tuple_targets
     )
 
 

@@ -11,14 +11,21 @@ def _escape_kql_string(s: str) -> str:
     return s.replace("\\", "\\\\").replace('"', '\\"')
 
 
-def kql_literal(value) -> str:
-    """Format a Python value as a KQL literal."""
+def _scalar_literal(value) -> str:
     if isinstance(value, str):
         return f'"{_escape_kql_string(value)}"'
-    if isinstance(value, list):
-        quoted = ", ".join('"{}"'.format(_escape_kql_string(v)) for v in value)
-        return f"({quoted})"
     return str(value)
+
+
+def kql_literal(value) -> str:
+    """Format a Python value as a KQL literal. List items are rendered
+    per-item (a numeric list like DstPortNumber in (139, 445) must not be
+    quoted as strings — found live: AST migration's Filter.value widened to
+    allow List[int]/List[float], and this crashed with AttributeError on
+    any non-string item before this fix)."""
+    if isinstance(value, list):
+        return f"({', '.join(_scalar_literal(v) for v in value)})"
+    return _scalar_literal(value)
 
 
 _DURATION_UNITS = {"D": "d", "H": "h", "M": "m", "S": "s"}

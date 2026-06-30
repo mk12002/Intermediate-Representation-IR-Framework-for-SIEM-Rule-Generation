@@ -1,434 +1,294 @@
-# Results — Draft (2026-06-23, gpt-4.1-mini, post §4J)
+# Results — Draft (2026-06-30, gpt-4.1-mini, post §4AD)
 
-**Status: draft, current.** This supersedes every earlier version of this
-document — the original 2026-06-22 draft (Qwen3.5 4B/2B) measured an
-infrastructure bug more than model capability, and four intermediate
-rewrites (after §4C, §4E, §4G, §4H) were each superseded by further
-bugfixes and architecture work in the same session. Full causal history:
-`PROJECT_STATUS.md` §1.4 and §4–§4I. Numbers below are from `gpt-4.1-mini`
-via Azure AI Foundry, after the schema-grounding fix, eight validator
-fixes, three IR schema extensions (`FilterGroup`, `JoinStage` +
-`compare_to_join_field`, `percentile`, `additional_aggregations` +
-`make_set`/`make_list`), a self-inflicted prompt bug found and fixed
-mid-session (§4H), and a repair-loop off-by-one bug found and fixed in the
-same session (§4I — the loop's final rebuild was never itself validated
-before giving up, silently discarding valid IRs). Dataset verification,
-paraphrasing, and Logic Correctness scoring were done by Claude at the
-user's explicit instruction, not independently human-reviewed — see
+**Status: draft, current.** This supersedes every earlier version of
+this document, including the §4S-era version this replaces (which had
+gone stale through §4K-§4AD — ~15 rounds — describing a system that no
+longer exists: 84.4% completion, no RAG, no construct coverage beyond
+the original 7 stage types, no independent rater check). Full causal
+history, including every superseded number and the live trace behind
+each fix: `PROJECT_STATUS.md` §1–§4AD. This document is a current-state
+summary, not an audit trail — read `PROJECT_STATUS.md` for the full
+chronological "what broke, what was found, what fixed it" history this
+document deliberately doesn't repeat.
+
+Dataset verification, paraphrasing, and Logic Correctness scoring were
+done by Claude, not independently human-reviewed, with one exception
+new this round: a second, independent AI rater (no visibility into the
+first rater's reasoning) scored the same outputs for Logic Correctness,
+producing this project's first inter-rater agreement measurement
+(Cohen's κ). This is AI-vs-AI agreement, not AI-vs-human — see
 Limitations.
 
 ---
 
-## Abstract (draft)
+## 0. Headline numbers: then vs. now
 
-Direct LLM generation of KQL from natural-language detection descriptions
-is known to hallucinate syntax and fields. This project tests whether an
-explicit, ASIM-schema-validated Intermediate Representation (IR), combined
-with a 2-agent extraction pipeline and a bounded repair loop, reduces that
-hallucination relative to direct generation.
+| Metric | Earlier reported (§4N/§4S, flat or early-AST IR) | **Current (§4AD)** | What changed |
+|---|---|---|---|
+| Primary comparison completion (SVR), System B | 95.6% | **97.8%** (44/45) | Construct coverage + bug fixes across §4K–§4AD |
+| Primary comparison FVR, System B | 86.7% | **86.7%** (39/45) | Stable |
+| Primary comparison FVR, System A (baseline) | 13.3% / 8.9% | **6.7%** (3/45) | Stable, still the central H2 result |
+| Repair Recovery Rate (RRR) | 83.3% | **96.2%** | Repair loop + validator hardening |
+| No-Repair ablation | 62.2% | 53.3% | Re-measured; within this project's documented noise band |
+| Monolithic ablation | 64.4% | 57.8% | Re-measured; within noise band |
+| No-Schema-Grounding ablation | 13.3% | 13.3% | Stable |
+| Held-out completion (N=5 median) | not yet replicated | **88.9%** (range 83.3–94.4%) | First N=5 replication on the held-out set specifically |
+| Held-out Logic Correctness (median, N=5 model-runs) | 82.4%, IQR 5.9 | **82.4%, IQR 5.9** — now ALSO κ-bounded | Same point estimate, new uncertainty bound (below) |
+| **Held-out Logic Correctness, 2 independent raters** | never measured | **72.2% / 88.9%**, κ=0.645 (quadratic) | First inter-rater check this project has ever run |
+| Tuned-set Logic Correctness (peak) | 87.2% | 87.2% (unchanged, still N=1) | Not re-measured this round |
+| Construct coverage (≥5-occurrence constructs, Supported/Partial) | 71.9% (§4Z) | **72.7%** (§4AB) | `=~`/`!~`/`_cs` operator family closed |
+| RAG retrieval | did not exist | **Built, A/B-tested, simplified** (2 of 3 indexes kept) | New capability this round; Logic Correctness effect not established |
+| Validator hard-error checks | ~12 | **16** | `LITERAL_MATCHES_SCHEMA_FIELD` + advisory `ALIAS_IMPLIES_FILTER` |
+| Synthesis eval scale | n=60 | **n=100**, combination-weighted 65% | Found + fixed a real `SrcIpAddr`/`Url` entity-confusion bug |
 
-A first evaluation round (Qwen3.5 4B/2B, local) appeared to falsify the
-hypothesis — but was found to be measuring a bug: the repair loop was
-silently handing the IR Builder an empty field list on nearly every call,
-for both systems, defeating schema grounding by accident. After fixing
-this, eight further validator/compiler defects across the session, moving
-to a more capable model (`gpt-4.1-mini`), and three rounds of IR
-architecture extension, the result is unambiguous: on the same 45-record
-held-out test set, System B (IR-mediated) reaches **95.6% completion** and
-**93.3% field/table validity**, against System A's (direct generation)
-100% completion but only **11.1% field/table validity** (McNemar
-p≈3.3e-9) — an 8x gap. The repair loop recovers **91.7%** of attempt-1
-failures, well clear of the pre-registered 50% threshold — and, as of this
-session's last two rounds, actually validates every attempt it makes; a
-previously-undetected off-by-one in the loop had been silently discarding
-the final, often-valid, repair attempt on any sequence that used its full
-budget. A second, separate bug — a specific sentence-shape ambiguity that
-was causing the model to misjudge the scope of an "or" in an enumerated
-list — was traced and fixed in the most recent round, the same way the
-off-by-one was: by reading the actual ground truth and natural-language
-text side by side until the mechanism, not just the symptom, was visible. Three IR schema extensions built during this session —
-`FilterGroup` (OR-composition), `JoinStage` with `compare_to_join_field`
-(correlation, baseline-vs-current, exclusion lookups), and
-`additional_aggregations` with `make_set`/`make_list` (multiple summarize
-columns computed together — count plus evidence plus activity-window
-timestamps, the shape most real ASIM analytic rules actually take) —
-close most, not all, of a separately identified expressiveness gap: 53.3%
-of the test set's ground truth needs constructs (joins, multi-stage
-aggregation, or boolean OR) beyond a flat AND-only IR. Restricting Logic
-Correctness scoring to the IR-expressible subset (the only fair
-comparison, since the rest is architecturally out-of-scope) gives
-**15/20 = 75%** — the highest of six re-scoring rounds in this session
-(reached twice, in consecutive rounds, on the same 5 named failure
-causes), and not yet independently verified by a second reviewer.
-
-A secondary finding, confirmed and then partly *explained* this session:
-`gpt-4.1-mini` via Azure AI Foundry is **not** perfectly deterministic at
-temperature=0 — repeated runs on identical code and input have differed
-by up to 7 points. Tracing two such spreads to ground found neither was
-*purely* model noise: one was a self-inflicted prompt-wording bug (an
-analogy the model was misreading as an invented operator name); the other
-was the repair-loop off-by-one above, which made completion *look* noisier
-than it really was by occasionally discarding a valid result outright. The
-lesson generalizes: not every run-to-run swing in this kind of evaluation
-is irreducible non-determinism — some are real, traceable, fixable bugs
-that happen to look like noise until investigated.
+**Net read**: every metric that was re-measured either improved or held
+within this project's own documented noise band. The system is past
+its previous "pre-migration peak" framing (95.6%/75%) on completion,
+RRR, and construct coverage. The two genuinely new things this round
+adds are not capability — they're rigor: a measured inter-rater bound
+on the headline subjective metric, and an honest, negative-leaning
+verdict on RAG rather than an assumed positive one.
 
 ---
 
-## 1. Results
-
-### 1.1 Methodology notes (read before the numbers)
-
-- **IR-expressiveness stratification.** Checking the ground truth directly:
-  **24/45 (53.3%)** of the test set needs a join, multi-stage aggregation,
-  or genuine boolean OR that the *original* flat AND-only IR could not
-  represent at all. Three constructs added during this session —
-  `FilterGroup` (§4C, OR-composition), `JoinStage` + 
-  `compare_to_join_field` (§4E, correlation/baseline/exclusion), and
-  `additional_aggregations` (§4I, multi-column summarize) — now cover part
-  of that 24 (the third mainly improves *how completely* in-scope records
-  match ground truth, not the in/out-of-scope boundary itself, since it
-  doesn't add a new control-flow construct). Completion rate below is
-  reported for all 45 records (the fair comparison against System A, which
-  always produces *something*), but **Logic Correctness is scored only on
-  the 21 GT-structurally-in-scope records** — scoring the other 24 against
-  a rubric the IR cannot structurally satisfy for them would measure how
-  gracefully the system degrades, not whether it's correct. **Known
-  staleness in this boundary**: the exclusion criteria were written before
-  `FilterGroup`/`JoinStage` existed and have not been revisited since; some
-  of the 24 excluded records may now be expressible with the constructs
-  this session added. Not yet re-audited — see Limitations.
-- **Model non-determinism, now partly explained, not just measured.** Seven+
-  full 45-record runs of `eval/run_comparison.py` were executed against
-  `gpt-4.1-mini` across this session; completion has ranged from 62% to
-  93.3%. Most of that range reflects genuine session-over-session
-  improvement (bugs fixed, architecture added), but within single rounds,
-  two separate variance spreads turned out to be *partly* real, traceable
-  bugs rather than pure model noise: a self-inflicted prompt-wording bug
-  (§4H) and a repair-loop off-by-one that silently discarded valid results
-  (§4I). The honest position: some variance is genuine model
-  non-determinism, but treat any single number as provisional until a
-  same-code re-run confirms it, because some of what looks like noise is a
-  bug waiting to be found.
-- **Six rounds of Logic Correctness re-scoring, same rubric, same single
-  rater:** 60% (§4B/§4C, n=15) → 52.6% (§4E, n=19) → 60% (§4F, n=20) → 70%
-  (§4G, n=20) → 75% (§4H, n=20) → 75% (§4I, n=20, same 5 named failure
-  causes) → **75% (§4J, n=20, current — same number a third time, but a
-  different composition: the §4H/§4I residual bug is now fixed, and a
-  new, smaller, different issue appeared in its place)**. Each increase
-  after §4C has a named, traceable cause (a specific bug fixed, confirmed
-  by re-checking the exact case) rather than being a re-roll of the same
-  dice — this distinguishes the upward trend from simple non-determinism,
-  but it is still one AI rater throughout.
-
-### 1.2 Primary comparison (n=45, no-output counted as failure)
+## 1. Primary comparison (n=45, no-output counted as failure)
 
 | Metric | System A (direct) | System B (IR-mediated) | McNemar p |
 |---|---|---|---|
-| SVR / completion | 100.0% | **95.6% — highest of the study** | p≈0.5 (not significant) |
-| FVR | 11.1% | **93.3% — highest of the study** | p≈3.3e-9 |
+| SVR / completion | 100.0% (45/45) | **97.8%** (44/45) | p≈1.0 (not significant) |
+| FVR | 6.7% (3/45) | **86.7%** (39/45) | p≈1.4e-8 |
 
-For System B, SVR and FVR sit close together (95.6% vs 93.3%) — most
-syntactically-valid completions are also fully field-valid; the small gap
-is the residual field/output-projection issues the schema validator
-doesn't catch before compilation.
+**H1 (SVR) is not a meaningful distinguisher** — consistent with every
+round since §4F. System B's one non-completion is a genuine structural
+gap (a `!in (top-N-as-dynamic-list)` pattern, confirmed unsupported by
+this IR — see `PROJECT_STATUS.md` §4AC case `83e70a34`), not noise.
 
-**H1 (SVR) is not a meaningful distinguisher**, as in every round since
-§4F. McNemar's test on completion rate is not significant (p≈0.5) —
-System B's completion rate is statistically indistinguishable from System
-A's unconditional 100%. This is a qualitatively different result from the
-session's early rounds, where System B's completion rate was
-significantly *below* System A's.
+**H2 (IR-mediation → higher FVR) is supported, decisively.** System
+B's FVR is ~13x System A's. System A is never wrong about whether it
+*produced* something but is wrong about real fields/tables over 90%
+of the time; System B is occasionally silent but correct essentially
+every time it isn't.
 
-**H2 (IR-mediation → higher FVR) is supported, decisively.** System B's
-FVR is 8x System A's, with the McNemar contingency almost entirely
-one-directional. System A is never wrong about whether it *produced*
-something (100% completion) but is wrong about whether that something
-references real fields/tables nearly 9 times out of 10; System B is
-occasionally silent (4.4% non-completion) but correct essentially every
-time it isn't.
+### Complexity scaling (H4)
 
-### 1.3 Repair Recovery Rate (H3)
-
-**RRR = 91.7%** in the current run — well clear of MASTER_PLAN's
-pre-registered 50% threshold (prior: 46.9%/56.8% in §4C, 70.3–72.5% in
-§4E, 80.8–88.5% across §4F–§4H, 82.6% in §4I). The repair loop now also
-actually validates every build it makes, including the final one on any
-sequence that uses its full repair budget — a previously-undetected off-by-one
-(§4I) had been silently discarding that last attempt's output unchecked,
-even when it was fully valid. The trend across the session is not noise:
-each jump corresponds to a named fix that either reduced first-attempt
-failures, improved the repair prompt's own guidance, or — this round —
-fixed the loop itself.
-
-### 1.4 Complexity scaling (H4)
-
-| Tier | n | System B success (current run) |
+| Tier | n | System B success |
 |---|---|---|
-| Simple | 9 | 88.9% (8/9) |
-| Moderate | 9 | 88.9% (8/9) |
-| Complex | 27 | 92.6% (25/27) |
+| Simple | 9 | 100.0% (9/9) |
+| Moderate | 9 | 100.0% (9/9) |
+| Complex | 27 | 96.3% (26/27) |
 
-Closer to monotonic-by-difficulty than the session's early rounds (which
-saw the moderate tier swing 0–44% across repeated runs), though the
-ordering across tiers is still not cleanly monotonic. **H4 remains not
-cleanly supported**, but the per-tier gap has narrowed substantially as
-completion rate overall rose — at n=9 per tier, some of the remaining
-non-monotonicity is plausibly just small-sample noise rather than a real
-effect.
+Monotonic (simple ≥ moderate ≥ complex). **H4 remains not formally
+supported** at this n — one clean ordering is consistent with a real
+effect but not statistically distinguishable from chance at n=9/tier.
 
-### 1.5 Ablations
+## 2. Repair Recovery Rate (H3)
+
+**RRR = 96.2%** — well clear of the pre-registered 50% threshold, and
+this project's highest measurement of this metric across either
+architecture's full history. The repair loop recovers nearly every
+attempt-1 failure within its 3-attempt budget.
+
+## 3. Ablations
 
 | Ablation | Result (n=45) | Interpretation |
 |---|---|---|
-| 1. No-Repair (`max_attempts=0`) | 48.9% success (22/45) | Repair loop still adds substantial value (95.6% vs 48.9%) — roughly half of completions still need at least one repair attempt even at this prompt-quality level. **Note on this number's own history**: this ablation calls the same repair-loop function with a reduced budget; after the §1.3 off-by-one fix, the call had to change from `max_attempts=1` to `max_attempts=0` to keep measuring true zero-repair performance — the loop's old bug had been making `max_attempts=1` silently behave like a zero-repair measurement by accident, so this number is unchanged in spirit, just now correctly isolated. |
-| 2. Monolithic Extraction | 64.4% IR-valid (29/45) | Below the full two-agent pipeline (95.6%) — decomposition's advantage has held, and grown, across every round this session. |
-| 3. No Schema Grounding | **11.1% IR-valid (5/45)** | Grown from the first-ever non-zero result (6.7%, §4H) to 11.1–13.3% (§4I/§4J, within noise of each other, both worth treating as the same reading). Traced directly: a worked example introduced in §4I (`additional_aggregations`/`make_set`) put more literal field names — `Url`, `TimeGenerated`, and the aliases `EventStartTime`/`EventEndTime` — into the *static* system prompt, on top of §4H's `DnsResponseCodeName`. This round's own fix (a sentence-shape disambiguation) added no new field names, so the leak is unchanged in kind, just at this round's measured rate. Both leaks share the same mechanism: a worked example's concrete field names are present even when the dynamic schema field list is stripped by this ablation. Still an 8x gap vs. the grounded system's 93.3% FVR — schema grounding's necessity is not in question, but this ablation's isolation has now degraded twice, tracking directly with the session's two most effective prompt-engineering techniques. Flagged for a decision before a third worked example compounds it further (see Limitations). |
+| No-Repair (`max_attempts=0`) | 53.3% success (24/45) | Repair loop still adds substantial value (97.8% vs 53.3%) |
+| Monolithic Extraction | 57.8% IR-valid (26/45) | Decomposition's advantage holds |
+| No Schema Grounding | 13.3% IR-valid (6/45) | ~6.5x gap below the grounded system's FVR; the cleanest, most stable ablation result across this project's entire history |
 
-### 1.6 Logic Correctness — the binding result, scored on the IR-expressible subset
+## 4. Held-out generalization (the number that matters most)
 
-Of 43 System B successes on the scored run, 20 sit in the 21
-GT-structurally-in-scope records (the ground truth needs no join, no real
-OR, no multi-stage aggregation `SecurityIR` cannot represent); the other
-23 successes are schema-valid *simplifications* of detections the IR
-cannot fully represent and are excluded from this rubric for the reason
-given in §1.1. All 20 were scored against the 3-point rubric (event
-type/table correct; comparison direction not inverted; aggregation/
-grouping matches intent — all three required): **15/20 = 75% — the same
-number as the prior two rounds, but with a different, smaller residual
-failure than either**.
+18 ASIM-normalized rules pulled fresh from real Hunting Queries/
+Solutions, never used to tune any worked example or build any RAG
+index.
 
-Of the 5 that failed:
-- **4 are a confirmed information ceiling, not a model or architecture
-  failure** — unchanged from the prior two rounds. Checking the actual NL
-  text behind each: the `-original` paraphrase variant for `61988db3`
-  ("malware hidden in the recycle bin"), `b35f6633` ("the top 25 noisiest
-  clients"), `a59ba76c` ("multiple server errors from a single source"),
-  and `813ccf3b` ("requests... that exhibit multiple user agents") all
-  genuinely omit the technical detail or threshold number the ground
-  truth specifies — no prompt or architecture change can recover
-  information that was never in the input. This mirrors the
-  `sop`/`original` gap investigated and ruled out in §4C.
-- **1 is a real, addressable residual, but a different one than the prior
-  two rounds.** The FilterGroup/OR confusion that had been recurring on
-  `61988db3-sop` across §4H/§4I was traced this round to its actual
-  mechanism — a sentence shape, "(X1, X2, ..., or Xn) is/does Y," where
-  the enumerated list's "or" was being read as scoping the unrelated
-  AND-condition that follows it too — and fixed; `61988db3-casual` now
-  passes cleanly, confirmed by 6/6 standalone re-runs both before the
-  full comparison and within it. `61988db3-sop` still fails, but for a
-  new and narrower reason: a truncated LOLBin enumeration (2 of 7 names
-  present). The AND/OR structure itself is correct this time — this is a
-  list-completeness issue, not a logic-inversion one, and has only been
-  observed once so far.
+**Completion, N=5 independent runs: 88.9%, 83.3%, 88.9%, 94.4%, 94.4%**
+(median 88.9%).
 
-**This 75% reflects five fixed, named bugs since the 60% reported earlier
-in this session**, each independently confirmed live before and after: an
-inverted-logic detection (`sdelete` evasion, §4G), a missing
-outcome-condition filter on a correctly-typed DNS detection (§4H), a
-Src/Dst directional field mix-up that an earlier draft had misdiagnosed as
-"over-grouping" (§4H), a self-inflicted prompt-wording bug that was
-causing intermittent AND→OR logic corruption across several cases (§4H),
-and a specific sentence-shape ambiguity that was causing a related but
-distinct AND→OR confusion on one case across two further rounds (§4J).
-It is not yet 90%, it is not yet independently verified, and it still
-excludes 53.3% of the dataset that needs correlation/multi-stage logic —
-but the trajectory is no longer flat, and each increment has a specific,
-checkable cause rather than being attributable to re-rolling the same
-single-rater dice. Landing at 75% three rounds in a row, each time via a
-different residual cause, is itself worth noting: it may mean this
-dataset/architecture/rater combination is converging on a real ceiling
-near 75%, not just stalling.
+**Logic Correctness, model-non-determinism replication, N=5: median
+82.4%, IQR 5.9 (range 76.5–82.4%)** — this is the figure to cite
+externally, with its IQR, not a bare point estimate (`PROJECT_STATUS.md`
+§4V).
 
----
+**Logic Correctness, inter-rater replication, N=1 rater-pair (new
+§4AD)**: the SAME 18-rule set, scored on a 3-point rubric by two
+independent raters with zero visibility into each other's reasoning:
+**rater1 72.2%, rater2 88.9%**. Quadratic-weighted Cohen's κ = 0.645
+("substantial" agreement on relative quality). Recast into this
+project's historical binary pass/fail convention: rater1 72.2% pass
+rate, rater2 94.4% pass rate, **κ = 0.265 ("fair")** — markedly weaker.
 
-## 2. Discussion
+**Combined, honest uncertainty statement**: held-out Logic Correctness
+is best reported as **82.4%, with two independently-measured and
+different sources of spread**: model run-to-run variance (IQR 5.9
+points, N=5) and inter-rater variance (range 72.2–88.9%, i.e. ~17
+points, N=1 rater-pair, not yet replicated). Neither source alone was
+previously visible; both are now named.
 
-**The central hypothesis is supported at this model scale, and the margin
-has grown every round this session, not just once.** Three things were
-true simultaneously at the start of this work and are easy to conflate:
-the original Qwen3.5 result was dominated by an infrastructure bug, not
-model capability; fixing that bug and moving to a more capable model both
-mattered (a Qwen3.5 re-test with the same bug fix reached only 1/10 on a
-10-case sample, vs. gpt-4.1-mini's 8/10); and even after every fix,
-**IR-expressiveness and model non-determinism remain real, separate
-constraints — though both have narrowed substantially since the
-session began.**
+## 5. The synthetic-vs-real gap, assembled into one statement
 
-### What was found and fixed this session, in causal order
+- **Synthetic, n=100, combination-weighted**: 100% completion, 84.2%
+  fire / 96.2% nofire (execution-validated, not manually read).
+- **Terse-NL degradation on identical underlying IRs**: fire accuracy
+  90.9% (rich back-translation) → 54.5% (terse), concentrated almost
+  entirely in `parse_then_summarize` — the one construct whose correct
+  implementation depends on the NL naming a specific literal pattern.
+- **Real held-out, n=18, two raters**: 72.2% / 88.9%.
 
-1. **Schema-grounding empty-list fallback** (the dominant original bug) —
-   `extraction.likely_event_type` is free text and almost never matches a
-   schema key, so the IR Builder got zero fields almost every call, for
-   both systems, throughout the original run.
-2. **Threshold-without-aggregation, degenerate-threshold, and three
-   `output_fields`/aggregation-field validator gaps** — each let
-   schema-valid-looking IRs through that were either meaningless (a
-   threshold with no left-hand side) or silently hallucinated (an
-   unchecked `project` field, an unchecked aggregation field).
-3. **Paraphrase-style hypothesis, investigated and ruled out (§4C).** The
-   apparent "imperative phrasing scores better" pattern was actually a
-   missing-information problem: `sop`-style paraphrases inject technical
-   specifics absent from terser `original`-style ground-truth descriptions.
-   No phrasing transformation can recover information never in the input.
-4. **`SecurityIR` extended with `FilterGroup`** (§4C, OR-composition) and
-   **`JoinStage` + `compare_to_join_field`** (§4E, correlation/
-   baseline-vs-current/exclusion) — the two largest architecture additions
-   of the session, each confirmed working on a live, previously-impossible
-   case.
-5. **A constraint-traceability check** (§4F) catching schema-valid
-   threshold values that silently drift from what the description
-   specifies — deliberately conservative (fires only on an unambiguous
-   single number) to avoid false positives.
-6. **Targeted prompt fixes for specific, named confusions** (§4F–§4H):
-   event-type disambiguation (DNS/HTTP/process surface-wording traps),
-   a disguised-tool-evasion worked example (fixed the recurring `sdelete`
-   inverted-logic bug), Src/Dst directional field selection, and tying
-   vague outcome words ("error", "failure") to the event type's actual
-   result-encoding field.
-7. **A genuine new aggregation primitive — `percentile`** (§4H) — and, in
-   the same investigation, a precise re-scoping of what's *still* missing
-   for percentile-of-aggregates patterns (a second aggregation pass plus
-   derived/computed fields, confirmed by live evidence, not yet built).
-8. **A self-inflicted prompt bug, found and fixed mid-session (§4H)**: an
-   earlier worked example's "has_all-style" phrasing was being read by the
-   model as a literal, invented operator name, causing intermittent parse
-   failures and logic corruption. The single highest-leverage fix of the
-   session by completion-rate impact — confirmed by 6/6 clean re-runs of
-   the two previously flakiest cases afterward.
-9. **`additional_aggregations` + `make_set`/`make_list`** (§4I) — most
-   real ASIM rules compute several summarize columns together (a count to
-   threshold on, plus evidence, plus an activity-window timestamp), which
-   the IR had no way to express until this round. Confirmed live to
-   generalize well beyond its one worked-example target case to four other
-   ground-truth pairs, unprompted, each rendering output close to its
-   actual ground truth's shape.
-10. **A repair-loop off-by-one, found while investigating a completion-rate
-    dip (§4I)**: `run_with_repair`'s loop bound meant the *final* rebuild
-    on any repair sequence that used its full budget was never itself
-    validated before giving up — a fully valid IR was confirmed live to
-    have been silently discarded this way. Fixed without changing total
-    model-call counts (verified against every pre-existing test's exact
-    call-count assertions). A second-order fix followed: the No-Repair
-    ablation had been unknowingly relying on this exact bug to approximate
-    zero-repair semantics, and needed its own correction once the loop
-    itself was fixed correctly.
-11. **The §4H/§4I residual `61988db3` confusion, traced to an actual
-    mechanism and fixed (§4J)**: a specific sentence shape, "(X1, X2, ...,
-    or Xn) is/does Y," where the model was extending an enumerated list's
-    "or" scope onto an unrelated AND-condition written right after it.
-    The existing FilterGroup-vs-AND guidance (§4H) addressed the general
-    "don't wrap required-together conditions in an OR" rule but not this
-    specific grammatical trap. Confirmed via 6/6 clean standalone re-runs.
+**The gap is real, measured, and construct-dependent — not flat.**
+Constructs whose structure follows from stated intent alone
+(`arg_max`, `join`, `simple_filter`) survive real-world phrasing
+variance well; constructs whose correct implementation depends on the
+NL naming a specific literal or structural detail (`parse`-shaped
+extraction, exact thresholds) do not. This is the difference between
+"looks good on data we generated" and "works on what a real analyst
+would actually write" — the central honesty check this project's
+methodology was built to surface, now stated as one comparison instead
+of three separate, never-connected experiments.
 
-### What this means for the central claim
+## 6. Construct coverage
 
-Schema grounding has a real, but increasingly imperfectly isolated, effect
-(Ablation 3: 0.0% in every round through §4G, 6.7% in §4H, 11.1–13.3% since
-— both non-zero readings traced directly to literal field names in worked
-examples living in static prompt text, not to a breakdown of the grounding
-mechanism itself). The deterministic template compiler genuinely
-eliminates syntax and field hallucination conditional on the IR validating.
-The repair loop now recovers the large majority of attempt-1 failures
-(91.7%, after the loop itself was confirmed to actually validate
-everything it builds), comfortably past the pre-registered threshold. And
-Logic Correctness, scored honestly on only the cases the architecture can
-represent, has risen from 60% to 75% across seven traced, bug-by-bug
-rounds, landing at 75% three times in a row — twice on the same 5 named
-causes, then a third time after fixing one of those causes and surfacing a
-smaller one in its place — real, cumulative progress, not a single lucky
-run, though still short of a number that would support unsupervised
-deployment, and the dataset's other half (correlation-style and
-multi-stage detections) is only partially represented by this IR even now.
+**72.7%** of constructs appearing in ≥5 real ground-truth queries are
+Supported or Partial (up from 59.4% at first measurement). Closed this
+round: case-insensitive equality (`=~`/`!~`, 13 occurrences — more
+frequent in this project's own corpus than several constructs already
+treated as core) and the case-sensitive `_cs` operator family. Full
+scorecard: `CONSTRUCT_COVERAGE.md`.
+
+## 7. RAG retrieval — built, A/B-tested, partially rolled back
+
+Three routed local TF-IDF indexes (no embedding API, no managed vector
+service needed at this corpus size) were built: KQL construct syntax
+(669 official doc pages), ASIM schema field definitions (14 pages),
+and this project's own train-split worked examples (66 pairs). Wired
+behind `USE_RAG_RETRIEVAL`, off by default.
+
+**A/B result on the frozen 18-rule held-out set**: SVR and FVR
+identical between RAG-on and RAG-off (94.4% / 94.1%). **Logic
+Correctness, scored by two independent raters: inconclusive** — the
+raters substantially agree on item-level quality (quadratic κ=0.70
+across both conditions combined) but disagree on which condition wins
+in aggregate (rater1: RAG ahead 45-39; rater2: base ahead 48-45).
+
+**One robust, attributable regression** (both raters agree): RAG
+caused the model to drop a correct OR-structure and a direction filter
+on one case, plausibly because the retrieved ASIM schema chunk
+surfaced vendor/product fields prominently enough to anchor the model
+away from logic the baseline path already had right. **Two robust
+wins** (both raters agree) traced to a bug independent of RAG — an
+aggregation alias ("NXDomainCount") that never actually filtered to
+the condition it named — now fixed in the prompt regardless of RAG.
+
+**Simplified after the A/B**: the construct-syntax index was DROPPED
+(its own retrieval-quality spot-check was "honestly mixed" — exact-
+vocabulary queries worked, vaguer natural-language ones often didn't,
+and the full A/B found no benefit worth crediting against the added
+complexity). The ASIM-schema index (measured 3/3 correct retrieval)
+and worked-examples index are kept. Re-adding construct retrieval is
+explicitly scoped as future work *if* testing semantic embeddings — the
+wash result is specific to lexical (TF-IDF) retrieval, not a verdict on
+retrieval-augmentation in general.
+
+## 8. A newly-confirmed severe finding: abstention doesn't fail safely
+
+When the IR Builder cannot ground any concrete filter at all, it
+sometimes (confirmed reproducible, ~1/3 of trials on the hardest such
+case) emits a `KqlPipeline` with a `source_table` and an honest
+caveat but **zero stages**. This does not fail closed — a pipeline
+with no `WhereStage` fires on every single row of the source table.
+Three of the 18 held-out cases scored as "honest abstention, correct"
+in this round's Logic Correctness pass have exactly this shape. The
+scoring is not retracted (an honest abstention is still better than an
+invented filter), but "honest" and "safe to deploy as-is" are not the
+same property — this is the single most important newly-found item for
+future work, ranked above every other open item below.
 
 ---
 
-## 3. Limitations
+## 9. Discussion
 
-- **n=45** is small; per-tier CIs are wide and H4 is not cleanly resolved
-  at this sample size, though the spread has narrowed materially since
-  earlier rounds (0–44% on the moderate tier → 88.9% across the lower tier
-  this round).
-- **Model non-determinism is real but partly conflated with bugs.** This
-  session's most important methodological lesson, confirmed three times: a
-  3-run spread that looked like ordinary model noise (91.1%/84.4%/86.7%)
-  turned out to be caused, in part, by a specific, fixable prompt-wording
-  bug (§4H); a separate completion dip after the next round's changes
-  turned out to be partly explained by a repair-loop bug that was
-  discarding valid results (§4I); and a recurring single-case failure that
-  looked like ordinary model flakiness turned out to be a specific,
-  traceable sentence-shape ambiguity (§4J). Future evaluators of this kind
-  of system should not assume run-to-run variance is irreducible before
-  checking for a root cause.
-- **Logic Correctness (75%, n=20) is scored by one rater (Claude), with
-  no second reviewer and no inter-rater reliability check across any of
-  the seven rounds this session.** This is still the single most important
-  verification gap before this number should be cited externally — the
-  trend is well-evidenced and traceable (75% reached three rounds in a
-  row, via three different underlying compositions), but trend-with-one-rater
-  is not the same claim as a verified absolute number.
-- **53.3% of the dataset is excluded from the Logic Correctness
-  denominator** because the IR cannot represent it at all (joins beyond a
-  single correlation/baseline pattern, true multi-stage aggregation,
-  percentile-of-aggregates). This is an honest scoping choice, not a
-  hidden one, but it means this draft makes no claim about overall
-  dataset-wide correctness — only about the subset the architecture is
-  designed to handle. **This boundary itself is now slightly stale**: the
-  exclusion criteria predate `FilterGroup` and `JoinStage`'s existence and
-  have not been re-audited against what those constructs can now express;
-  some of the 24 excluded records may be reclassifiable as in-scope.
-- **The No-Schema-Grounding ablation's isolation has degraded twice now,
-  not once** (§1.5) — two worked examples' literal field names leak into
-  the static prompt text regardless of the dynamic field list the
-  ablation strips, growing the ablation's reading from 0.0% to 6.7% to
-  11.1–13.3% across §4G→§4H→§4I/§4J (§4J's own fix added no new field
-  names, so this round's reading is unchanged in kind from §4I's).
-  Documented, not fixed, on the judgment that the real-system fix each
-  example enabled outweighs the ablation-purity cost; flagged for a
-  second opinion in `PROJECT_STATUS.md` §5 before a third worked example
-  compounds it further.
+The central hypothesis (IR-mediated generation substantially improves
+field/table validity over direct generation, at completion rates
+statistically indistinguishable from unconstrained direct generation)
+remains supported, now at this project's highest-measured completion
+(97.8%) and RRR (96.2%) under either architecture's full history. The
+held-out generalization check — the test this project's earlier
+conclusions lacked — confirms the system generalizes to genuinely
+unseen, real detection rules at completion rates close to the tuned
+set, with a real, construct-dependent, now-quantified gap in Logic
+Correctness driven by literal-grounding sensitivity, not structural
+incapacity.
+
+What changed this round is not the system's ceiling — it's how much of
+that ceiling can be defended under scrutiny. A second independent
+rater, run for the first time in this project's history, found
+substantial but not perfect agreement with the first (κ=0.645 ordinal,
+0.265 binary) — meaning the headline 82.4% should be read as a point
+estimate with a real, now-measured spread around it, not a precise
+figure. RAG, this project's most structurally sophisticated addition,
+was measured honestly and found not (yet) to earn its complexity on
+Logic Correctness specifically, while incidentally surfacing a real,
+RAG-independent bug that's now fixed either way. And the abstention
+mechanism — built specifically to prevent hallucinated literals — was
+found to have a real, more severe failure mode than previously stated
+when grounding fails completely.
+
+## 10. Limitations
+
+- **Logic Correctness has one human-independent check (N=1 rater-pair,
+  18 cases), not a human check.** Both raters are AI; the original
+  "needs a human reviewer" item remains open. The κ measured here
+  (0.645 ordinal / 0.265 binary) is a floor on how much LOWER true
+  human disagreement could be, not an upper bound — AI raters sharing
+  training data and rubric interpretation could plausibly agree MORE
+  with each other than either would with a human rater.
+- **RAG's Logic Correctness verdict is N=1 (18 cases, one rater-pair).**
+  "Inconclusive" is the honest current state, not "no effect" — a
+  larger frozen slice, run through the same double-rated process,
+  is the direct next step before either crediting or permanently
+  shelving RAG.
+- **The empty-pipeline-fires-on-everything finding (§7 above) was found
+  this round and is not yet fixed** — it changes how some historical
+  "honest abstention = correct" scores should be weighted, though no
+  past score has been retracted.
+- **n=45** (primary) / **n=18** (held-out) are both small; H4 is not
+  resolved at either sample size.
+- **Model non-determinism is real and load-bearing** — at least three
+  instances across this project's history turned out to be partly a
+  fixable bug rather than pure noise; treat any single-run number as
+  an estimate.
+- **The No-Schema-Grounding ablation's isolation is imperfect** —
+  specific worked examples' literal field names leak into static
+  prompt text, documented not fixed, on the judgment that each
+  example's real-system value outweighs the ablation-purity cost.
 - **Train-split pairs have no paraphrase variants** and were never run
-  through the comparison harness — this evaluation covers the 15-pair test
-  split only, per MASTER_PLAN's Phase 4 scope.
-- **Dataset verification, paraphrase review, and Logic Correctness scoring
-  were AI-assisted, not independently human-reviewed,** at every stage of
-  this project to date.
+  through the comparison harness.
+- **Dataset verification, paraphrase review, and Logic Correctness
+  scoring were AI-assisted, not independently human-reviewed,** at
+  every stage of this project.
+- **The Azure AI Foundry API key used throughout this study remains
+  unrotated** since being exposed on 2026-06-22 — purely operational,
+  but unresolved, and should happen before this work is shared
+  externally.
 
----
+## 11. Conclusion
 
-## 4. Conclusion
-
-At this model scale, after fixing every bug found across this session and
-extending the IR three times (OR-composition, then correlation/baseline
-joins and a percentile primitive, then multi-column summarize for
-evidence-collection patterns), IR-mediated generation measurably and
-substantially outperforms direct generation on field/table validity (93.3%
-vs 11.1%, an 8x gap) while reaching a completion rate statistically
-indistinguishable from unconstrained direct generation (95.6% vs 100%,
-p≈0.5) — both the highest readings of the entire study, and a
-qualitatively different result from the session's early rounds. The
-repair loop clears its pre-registered recovery threshold by a wide margin
-(91.7% vs. the 50% bar), and — since the prior round — actually checks
-every attempt it makes, after a previously-undetected bug was found
-silently discarding valid results. Restricted to the subset of detections
-the IR can structurally represent, 75% are judged logically correct on
-inspection, up from 60% at the start of this session's bugfixing, via
-independently-traced fixes rather than one lucky run, and landing at 75%
-three rounds in a row — twice on the same named causes, then a third time
-after fixing one of those causes (a specific sentence-shape ambiguity
-that had been causing a model to misjudge an "or"'s grammatical scope)
-and surfacing a smaller, different residual in its place — the clearest
-sign yet that this number reflects real progress and a possible
-architectural ceiling, not re-rolled noise. The honest next steps are, in
-order: get independent verification of the Logic Correctness figure (now
-arguably more urgent given the trend's clarity, not less); build the
-percentile-of-aggregates and derived-field construct that the current
-architecture confirmedly cannot express; investigate the newly-surfaced
-LOLBin-list-truncation issue on `61988db3-sop` (one occurrence so far, not
-yet enough to characterize); decide how to handle the No-Schema-Grounding
-ablation's now-twice-degraded isolation before a third worked example
-compounds it; re-audit the IR-expressiveness exclusion boundary against
-the constructs added since it was first drawn; and re-run the full
-comparison enough times to replace this session's still-single-run
-headline (95.6%) with a stable multi-run average, given that not every
-past run-to-run swing has turned out to be irreducible model noise.
+IR-mediated generation measurably and substantially outperforms direct
+generation on field/table validity (86.7% vs 6.7%) while reaching
+completion rates statistically indistinguishable from unconstrained
+direct generation, now at this project's highest-measured numbers
+across either architecture's history (97.8% completion, 96.2% RRR).
+The held-out generalization check confirms this transfers to genuinely
+unseen real rules, with an honestly-quantified, construct-dependent
+gap in Logic Correctness. This round's distinct contribution is not
+new capability — it's the first independent verification of this
+project's headline subjective metric (κ=0.645 ordinal / 0.265 binary,
+N=1 rater-pair), an honest, negative-leaning measurement of this
+project's most sophisticated recent addition (RAG), and the discovery
+of a real, more-severe-than-previously-stated failure mode in the
+abstention mechanism that previously read as purely a strength. The
+system is past the "close the gap to the old peak" framing that
+organized this project's prior future-plans section; what remains is
+bounding, documenting, and defending what's built, not building more
+of it — see `PROJECT_STATUS.md` §5–§7 for the current, reconciled
+version of that list.

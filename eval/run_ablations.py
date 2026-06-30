@@ -5,6 +5,10 @@ import json
 import logging
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from src.agents.extraction_agent import ExtractionAgent
 from src.agents.ir_builder_agent import IRBuilderAgent
 from src.agents.monolithic_agent import MonolithicAgent

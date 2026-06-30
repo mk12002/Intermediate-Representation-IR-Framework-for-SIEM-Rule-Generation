@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import List, Literal, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ASIMEventType(str, Enum):
@@ -39,35 +39,103 @@ class FilterOperator(str, Enum):
     HAS = "has"
     NOT_HAS = "!has"
     HAS_ANY = "has_any"
+    # A real, separate KQL operator from has_any — confirmed live in
+    # ground truth (e.g. `CommandLine has_all ("accepteula", "-s", "-r",
+    # "-q")`, a multi-flag evasion check) after a construct-coverage audit
+    # found the prompt was incorrectly telling the model this operator
+    # doesn't exist (PROJECT_STATUS.md §4X). Requires EVERY term present,
+    # the AND-equivalent of has_any's OR.
+    HAS_ALL = "has_all"
     MATCHES_REGEX = "matches regex"
     GT = ">"
     LT = "<"
     GTE = ">="
     LTE = "<="
+    # Case-insensitive `in`/`!in` — KQL's plain `in`/`!in` are
+    # case-SENSITIVE by default (unlike contains/has/startswith/endswith,
+    # which already default case-insensitive above); `in~`/`!in~` are the
+    # explicit case-insensitive forms and appear frequently in real ground
+    # truth list-membership checks (PROJECT_STATUS.md §4X construct audit).
+    IN_CI = "in~"
+    NOT_IN_CI = "!in~"
+    # Case-insensitive equality/inequality — distinct from plain ==/!=
+    # above, which are case-SENSITIVE by default for strings in KQL (the
+    # mirror image of IN_CI/NOT_IN_CI's relationship to IN/NOT_IN). Found
+    # live in real ground truth (e.g. `FileName =~ "powershell.exe"`,
+    # tolerating PowerShell.EXE/POWERSHELL.exe) at 13 occurrences across
+    # this project's own verified+held-out corpus — more than several
+    # constructs already modeled as core (e.g. make-series, at 9; see
+    # CONSTRUCT_COVERAGE.md's frequency audit).
+    EQ_CI = "=~"
+    NEQ_CI = "!~"
+    # Case-SENSITIVE forms of contains/startswith/endswith/has, which are
+    # all case-insensitive by default in KQL (see ir_builder_agent.py's
+    # worked guidance). Confirmed real in ground truth (e.g. `CommandLine
+    # has_cs "-exec bypass -w 1 -enc"`, `CommandLine contains_cs
+    # "<base64-encoded payload fragment>"` — where a case-insensitive
+    # match would either miss the actual encoded string or over-match
+    # unrelated content, since a different-case base64 string decodes to
+    # different bytes entirely).
+    CONTAINS_CS = "contains_cs"
+    NOT_CONTAINS_CS = "!contains_cs"
+    STARTSWITH_CS = "startswith_cs"
+    NOT_STARTSWITH_CS = "!startswith_cs"
+    ENDSWITH_CS = "endswith_cs"
+    NOT_ENDSWITH_CS = "!endswith_cs"
+    HAS_CS = "has_cs"
+    NOT_HAS_CS = "!has_cs"
 
 
 class Filter(BaseModel):
-    """A single condition. Items at the top level of SecurityIR.filters are
-    implicitly AND-ed together (one KQL "| where" clause each) — there is no
-    way to express OR between two top-level Filters; use a FilterGroup for
-    that."""
-
     type: Literal["filter"] = "filter"
     field: str
     operator: FilterOperator
-    value: Union[str, int, float, List[str]]
+    # List[Union[str, int, float]], not List[str]: a list-valued filter
+    # against a numeric field (e.g. "DstPortNumber in (139, 445)") needs an
+    # int list. List[str]-only rejected that with a 5-error union-match
+    # cascade and pushed the LLM's retry into a worse, malformed shape —
+    # confirmed live during the AST migration's first hardening pass.
+    value: Optional[Union[str, int, float, bool, List[Union[str, int, float]]]] = None
+    # Compares `field` against ANOTHER COLUMN instead of a literal —
+    # mutually exclusive with `value`. Added §4AA: found live that a
+    # correlation needing "ProcessTime between FirstAuthTime and
+    # LastAuthTime" (both columns from a joined right_pipeline) had no
+    # way to be expressed — `value` is always rendered as a literal, so
+    # the model fell back to comparing against the quoted STRING NAME of
+    # the other column (syntactically valid, silently wrong: it can
+    # never correctly match). Typically a column produced by an earlier
+    # stage in this same pipeline or a joined right_pipeline rather than
+    # a raw ASIM source field — but the validator's `available_schema`
+    # already tracks those (extend aliases, joined-in columns) by the
+    # time a later WhereStage runs, so it IS checked the same way `field`
+    # is (ir_validator.py), not exempted.
+    field_ref: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _exactly_one_of_value_or_field_ref(self) -> "Filter":
+        if (self.value is None) == (self.field_ref is None):
+            raise ValueError("Filter must set exactly one of `value` or `field_ref`, not both/neither")
+        return self
+
+
+class AndGroup(BaseModel):
+    type: Literal["and_group"] = "and_group"
+    # An AND-ed sub-condition, usable only INSIDE a FilterGroup — lets a
+    # FilterGroup express "(A and B) or (C and D)", not just a flat OR of
+    # single atoms. Found live (PROJECT_STATUS.md §4N): a multi-app/port
+    # mismatch detection needs "(app==dns and port!=53) or (app==http and
+    # port!=80) or ..." — each branch itself a conjunction — which a flat
+    # FilterGroup structurally cannot represent, forcing every live attempt
+    # into a different wrong approximation (including an outright
+    # tautology). A bare AndGroup at the top level of WhereStage.filters
+    # would be redundant (multiple WhereStage.filters entries are already
+    # AND-ed) — it only adds expressiveness nested inside an OR.
+    conditions: List[Filter] = Field(min_length=2)
 
 
 class FilterGroup(BaseModel):
-    """A parenthesized block of conditions OR-ed together, e.g. KQL's
-    "(CommandLine has 'user' or CommandLine has 'group')". Use this when the
-    detection needs "(A or B) and (C or D)"-style logic — a FilterGroup in
-    SecurityIR.filters is still AND-ed with every other item in that list,
-    same as a plain Filter; only the conditions *inside* the group are OR-ed.
-    Needs at least 2 conditions to be meaningful."""
-
     type: Literal["group"] = "group"
-    conditions: List[Filter] = Field(min_length=2)
+    conditions: List[Union[Filter, AndGroup]] = Field(min_length=2)
 
 
 class AggregationFunction(str, Enum):
@@ -80,6 +148,14 @@ class AggregationFunction(str, Enum):
     PERCENTILE = "percentile"
     MAKE_SET = "make_set"
     MAKE_LIST = "make_list"
+    # KQL's real spread/regularity functions. Added after a live case
+    # (interval-regularity beaconing detection) had no real aggregation to
+    # reach for and the model invented array_avg()/array_stddev() instead —
+    # neither exists in KQL. stdev()/variance() are real summarize
+    # aggregations and are the correct general-purpose tool for "how
+    # consistent/regular is this value across the group" detections.
+    STDEV = "stdev"
+    VARIANCE = "variance"
 
 
 KQL_AGG_FUNCTIONS = {
@@ -92,23 +168,12 @@ KQL_AGG_FUNCTIONS = {
     AggregationFunction.PERCENTILE: "percentile",
     AggregationFunction.MAKE_SET: "make_set",
     AggregationFunction.MAKE_LIST: "make_list",
+    AggregationFunction.STDEV: "stdev",
+    AggregationFunction.VARIANCE: "variance",
 }
 
 
 class Aggregation(BaseModel):
-    """percentile is required (0-100) when function="percentile" — KQL's
-    percentile() takes a field AND a percentile value, unlike every other
-    supported function. This computes the Nth percentile of field's
-    per-row values *within* each group (e.g. P95 connection duration per
-    host) — it does not support computing a percentile *across* groups'
-    own aggregate results (e.g. "processes at or below the 5th percentile
-    of their own execution frequency"), which needs a second aggregation
-    pass over a scalar derived from the first and is out of scope.
-
-    limit is optional and only meaningful for make_set/make_list — KQL's
-    own default cap (128) applies when omitted; unlike percentile's value,
-    a missing limit is not an error."""
-
     function: AggregationFunction
     field: Optional[str] = None
     result_alias: str = "AggregatedValue"
@@ -116,96 +181,223 @@ class Aggregation(BaseModel):
     limit: Optional[int] = None
 
 
-class ThresholdOperator(str, Enum):
-    GT = ">"
-    GTE = ">="
-    LT = "<"
-    LTE = "<="
-    EQ = "=="
+class ArgMaxMin(BaseModel):
+    """`arg_max(order_field, *)` / `arg_min(order_field, *)` — KQL's "get
+    the FULL ROW at the max/min value of order_field, per group" idiom
+    (e.g. "the most recent event per host, with every other column from
+    that same row"). Modeled as its own field on SummarizeStage, not a
+    plain Aggregation, because it is structurally different from every
+    other aggregation here: it doesn't reduce to ONE output column under
+    ONE result_alias — each carried field becomes its OWN output column,
+    keeping ITS OWN name, exactly as real KQL names them. Found in the
+    construct-coverage audit (CONSTRUCT_COVERAGE.md): 36 real-query
+    occurrences, previously only "Partial" (the function name was
+    whitelisted for ExtendStage, where this idiom can never actually be
+    expressed — arg_max/arg_min only exist inside summarize)."""
+    order_field: str
+    # The other columns to carry through from the max/min row, each
+    # keeping its own name in the output (not under result_alias). Use
+    # ["*"] to carry every other field still in scope — KQL's own `*`
+    # shorthand for "all remaining columns."
+    carry_fields: List[str] = Field(min_length=1)
+    # Real KQL DOES support renaming the order_field's own output column
+    # (e.g. "LatestIndicatorTime = arg_max(TimeGenerated, *)") — found
+    # live in 30+ real ground-truth uses of this exact pattern
+    # (threat-intel indicator deduplication before a join), none of
+    # which leave the order_field under its raw name. None means "use
+    # order_field's own name," the simpler, equally-real case this
+    # was originally scoped to.
+    result_alias: Optional[str] = None
 
 
-class Threshold(BaseModel):
-    """value is a plain literal by default: "{aggregation result} {operator}
-    {value}". Set compare_to_join_field for a baseline-vs-current detection
-    ("current exceeds the 14-day baseline by more than 50") — it must name
-    the join stage's own aggregation.result_alias, and value becomes the
-    margin added to it: "{aggregation result} {operator} {compare_to_join_field}
-    + {value}". Use value=0 for a direct comparison with no margin."""
-
-    operator: ThresholdOperator
-    value: Union[int, float]
-    compare_to_join_field: Optional[str] = None
+class ComputedField(BaseModel):
+    alias: str
+    expression: str
 
 
 class JoinKind(str, Enum):
-    """KQL join flavors used in ASIM correlation rules."""
     INNER = "inner"
-    LEFTANTI = "leftanti"
+    INNERUNIQUE = "innerunique"
     LEFTOUTER = "leftouter"
+    RIGHTOUTER = "rightouter"
+    FULLOUTER = "fullouter"
+    LEFTANTI = "leftanti"
+    RIGHTANTI = "rightanti"
+    LEFTSEMI = "leftsemi"
+    RIGHTSEMI = "rightsemi"
+
+
+class WhereStage(BaseModel):
+    type: Literal["where"] = "where"
+    filters: List[Union[Filter, FilterGroup]] = Field(default_factory=list)
+
+
+class SummarizeStage(BaseModel):
+    type: Literal["summarize"] = "summarize"
+    aggregations: List[Aggregation] = Field(default_factory=list)
+    group_by: Optional[List[str]] = None
+    time_window: Optional[str] = None
+    # arg_max/arg_min combine freely with aggregations/group_by in the
+    # same real summarize clause (e.g. "count(), arg_max(TimeGenerated, *)
+    # by Dvc" is valid KQL) — siblings, not alternatives.
+    arg_max: Optional[ArgMaxMin] = None
+    arg_min: Optional[ArgMaxMin] = None
+
+
+class ExtendStage(BaseModel):
+    type: Literal["extend"] = "extend"
+    computed_fields: List[ComputedField] = Field(default_factory=list)
 
 
 class JoinStage(BaseModel):
-    """A sub-query joined against the main query — covers the correlation
-    patterns (baseline-vs-current, enrichment lookup, exclusion via leftanti)
-    that a flat single-table IR cannot express.
-
-    Renders as:
-        let <alias> = <table> | where ... | summarize ...;
-        MainQuery | join kind=<join_kind> (<alias>) on <join_on keys>
-    """
-    model_config = ConfigDict(extra="forbid")
-
-    alias: str = "SubQuery"
-    event_type: ASIMEventType
-    filters: List[Union[Filter, FilterGroup]] = Field(default_factory=list)
-    aggregation: Optional[Aggregation] = None
-    # Extra summarize columns computed alongside `aggregation` in the same
-    # clause (e.g. an evidence make_set() next to the count that drives the
-    # join) — see SecurityIR.additional_aggregations for the rationale.
-    additional_aggregations: List[Aggregation] = Field(default_factory=list)
-    group_by: Optional[List[str]] = None
-    time_window: Optional[str] = None  # ISO 8601 duration
+    type: Literal["join"] = "join"
+    kind: JoinKind = JoinKind.INNER
+    # Forward ref, not Any: right_pipeline must be a real, Pydantic-validated
+    # KqlPipeline, not a raw dict. With Any, a malformed nested pipeline from
+    # the model parsed "successfully" (Any accepts anything) and crashed
+    # validate_ir's recursive call with an AttributeError instead of being
+    # caught as a clean LLM_OUTPUT_PARSE_FAILURE — confirmed live.
+    right_pipeline: "KqlPipeline"
     join_on: List[str] = Field(min_length=1)
-    join_kind: JoinKind = JoinKind.INNER
 
 
-class SecurityIR(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+class UnionStage(BaseModel):
+    type: Literal["union"] = "union"
+    tables: List[str]
 
-    event_type: ASIMEventType
-    # Plain (smart-mode) union, not Field(discriminator="type") — a
-    # discriminator requires the "type" tag to be *present* in the input
-    # even though it has a Python-level default, so models that omit it on
-    # an ordinary Filter (the common case — most filters never need
-    # FilterGroup) failed to parse at all. Smart-mode union matches
-    # structurally instead (does it have "conditions"? -> FilterGroup;
-    # does it have "field"/"operator"/"value"? -> Filter) and tolerates
-    # the tag being absent.
-    filters: List[Union[Filter, FilterGroup]] = Field(default_factory=list)
-    aggregation: Optional[Aggregation] = None
-    # Extra summarize columns computed alongside `aggregation` in the same
-    # clause — e.g. "ErrorCount = count(), Urls = make_set(Url, 100),
-    # EventStartTime = min(TimeGenerated)" all in one summarize. Most real
-    # ASIM analytic rules compute several columns together, not one; before
-    # this field, the IR could only ever express the single column a
-    # threshold applies to. `threshold` always compares against
-    # `aggregation`'s own result_alias, never one of these — they're
-    # side evidence/context, not alerting conditions.
-    additional_aggregations: List[Aggregation] = Field(default_factory=list)
+
+class ProjectStage(BaseModel):
+    type: Literal["project"] = "project"
+    fields: List[str]
+
+
+class TopStage(BaseModel):
+    type: Literal["top"] = "top"
+    limit: int
+    by_field: str
+    desc: bool = True
+
+
+class MvExpandStage(BaseModel):
+    type: Literal["mv_expand"] = "mv_expand"
+    # Most real detections expand exactly one dynamic-array field
+    # (mv-expand Field). Multiple fields (mv-expand A, B, C — expanding
+    # several arrays in lockstep, the same pattern make-series ->
+    # series_decompose_anomalies -> mv-expand needs to flatten the
+    # timestamp/value/anomaly-flag series back into one row per bucket)
+    # is also real KQL and not meaningfully harder to model, so this
+    # takes a list rather than a single field from the start.
+    fields: List[str] = Field(min_length=1)
+    as_type: Optional[str] = None  # `to typeof(...)` — only valid for a single field
+
+
+class MakeSeriesStage(BaseModel):
+    """`make-series` — produces one row per group_by combination, with
+    each requested aggregation as a DYNAMIC ARRAY of per-bucket values
+    spanning the time range (not one scalar per row, unlike
+    SummarizeStage). This is the construct a baseline-vs-current
+    comparison cannot substitute for: it preserves the full per-bucket
+    sequence for series_decompose_anomalies (SeriesAnomalyStage below)
+    or other series_*() functions to operate on, where SummarizeStage
+    only ever produces one collapsed value per group."""
+
+    type: Literal["make_series"] = "make_series"
+    aggregations: List[Aggregation] = Field(min_length=1)
     group_by: Optional[List[str]] = None
-    threshold: Optional[Threshold] = None
-    time_window: Optional[str] = None  # ISO 8601 duration, e.g. "PT5M"
-    output_fields: Optional[List[str]] = None
-    join: Optional[JoinStage] = None
+    from_time: str  # a literal KQL time expression, e.g. "ago(14d)"
+    to_time: str = "now()"  # same — a literal KQL time expression
+    step: str  # bin width as ISO 8601, e.g. "PT1H" — same convention as
+    # SummarizeStage.time_window elsewhere in this schema, NOT a raw KQL
+    # duration literal like "1h" (from_time/to_time above are the
+    # exception, not the pattern — they're full time expressions with no
+    # ISO 8601 equivalent, not bin widths)
+
+
+class SeriesAnomalyStage(BaseModel):
+    """`series_decompose_anomalies()` — the real KQL anomaly-detection
+    function, applied to a series produced by a prior MakeSeriesStage.
+    Found live (PROJECT_STATUS.md §4T/§4U, case 01191239): with no
+    construct for this at all, the model could only ever approximate a
+    DGA/outlier detection as a flat count, self-disclosing the gap via
+    `caveats` rather than silently faking it — the honest behavior at
+    the time, but a real, closeable capability gap, not a permanent
+    one. Always introduces 3 new series-typed fields for a later
+    MvExpandStage to flatten back into rows; score_threshold maps to
+    series_decompose_anomalies' own threshold parameter (KQL default 1.5
+    if not given)."""
+
+    type: Literal["series_anomaly"] = "series_anomaly"
+    series_field: str  # the array-valued aggregation alias from MakeSeriesStage
+    score_threshold: float = 1.5
+    flag_alias: str = "AnomalyFlag"
+    score_alias: str = "AnomalyScore"
+    baseline_alias: str = "Baseline"
+
+
+class ParseToken(BaseModel):
+    """One token in a `parse ... with ...` clause, in left-to-right
+    order. "literal" matches an exact substring (the text between
+    extracted fields); "column" extracts the text at that position into
+    a new field, named `value`; "wildcard" (KQL's bare `*`) skips any
+    text at that position without extracting it — used for an unparsed
+    prefix/suffix, e.g. "parse Message with * '(' DNSName ')' *"."""
+    type: Literal["literal", "column", "wildcard"]
+    value: Optional[str] = None  # the literal text, or the new column's name — unused for "wildcard"
+
+
+class ParseStage(BaseModel):
+    """KQL's `parse` pipe operator (simple/positional mode — covers the
+    dominant real-world usage; `kind=regex`/`kind=relaxed` parse modes
+    are out of scope, per CONSTRUCT_COVERAGE.md's tail policy). Extracts
+    one or more new fields from a single source field by alternating
+    literal delimiter text and named extraction points, e.g. "parse
+    Message with * '(' DNSName ')' *" extracts DNSName from inside
+    parentheses, ignoring everything else in Message."""
+    type: Literal["parse"] = "parse"
+    source_field: str
+    tokens: List[ParseToken] = Field(min_length=1)
+
+
+Stage = Union[
+    WhereStage,
+    SummarizeStage,
+    ExtendStage,
+    JoinStage,
+    UnionStage,
+    ProjectStage,
+    TopStage,
+    MvExpandStage,
+    MakeSeriesStage,
+    SeriesAnomalyStage,
+    ParseStage,
+]
+
+
+class KqlPipeline(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    source_table: Union[ASIMEventType, str]
+    stages: List[Stage] = Field(default_factory=list)
+    # Self-disclosed abstentions — one short string per filter the model
+    # deliberately omitted because the description referenced data it
+    # could not concretely ground (an external list/watchlist with no
+    # values given, an unrecoverable attribution label). Populated by the
+    # IR Builder itself, not inferred after the fact — see
+    # ir_builder_agent.py's "omit, don't invent" worked examples, each of
+    # which now asks for one caveats entry alongside the omission. Kept
+    # separate from PipelineResult.warnings (verifier-sourced, about a
+    # generated query) since this is the model's own account of a
+    # decision it made, not an external critique of the result.
+    caveats: List[str] = Field(default_factory=list)
+
+
+# Resolves the JoinStage.right_pipeline forward reference now that
+# KqlPipeline itself is defined — required for the recursive type to
+# build correctly; without this, right_pipeline would stay unresolved.
+JoinStage.model_rebuild()
+KqlPipeline.model_rebuild()
 
 
 class ExtractionOutput(BaseModel):
-    """Loose, pre-schema extraction surfaced by the Extraction Agent.
-
-    Deliberately under-constrained relative to SecurityIR — it is the
-    IR Builder Agent's job to commit to a schema-conformant structure.
-    """
-
     likely_event_type: str
     actors: List[str] = Field(default_factory=list)
     action_description: str

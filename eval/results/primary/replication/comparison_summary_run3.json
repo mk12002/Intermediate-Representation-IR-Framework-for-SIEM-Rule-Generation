@@ -1,0 +1,52 @@
+{
+  "n": 45,
+  "svr": {
+    "system_a": 1.0,
+    "system_b": 0.9555555555555556,
+    "system_a_ci": [
+      1.0,
+      1.0
+    ],
+    "system_b_ci": [
+      0.8888888888888888,
+      1.0
+    ],
+    "mcnemar": {
+      "p_value": 0.5,
+      "a_only": 2,
+      "b_only": 0
+    }
+  },
+  "fvr": {
+    "system_a": 0.08888888888888889,
+    "system_b": 0.9111111111111111,
+    "system_a_ci": [
+      0.022222222222222223,
+      0.17777777777777778
+    ],
+    "system_b_ci": [
+      0.8222222222222222,
+      0.9777777777777777
+    ],
+    "mcnemar": {
+      "p_value": 3.2516061726496955e-09,
+      "a_only": 0,
+      "b_only": 37
+    }
+  },
+  "rrr": 0.9166666666666666,
+  "per_tier": {
+    "simple": {
+      "total": 9,
+      "sys_b_success": 9
+    },
+    "complex": {
+      "total": 27,
+      "sys_b_success": 25
+    },
+    "moderate": {
+      "total": 9,
+      "sys_b_success": 9
+    }
+  }
+}

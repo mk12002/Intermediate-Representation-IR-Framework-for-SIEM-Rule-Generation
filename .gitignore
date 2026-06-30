@@ -41,3 +41,11 @@ coverage.xml
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# RAG source corpora — large external git clones (MicrosoftDocs/
+# dataexplorer-docs, MicrosoftDocs/defender-docs), not project source.
+# Re-fetch via the clone commands in PROJECT_STATUS.md §4AB / re-derive
+# via src/retrieval/build_indexes.py. The built indexes themselves
+# (data/rag_indexes/*.pkl) ARE small and ARE committed — they're the
+# actual build artifact this project depends on at runtime.
+.rag_corpora/

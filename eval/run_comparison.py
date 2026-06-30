@@ -6,7 +6,12 @@ Requires data/processed/pairs.jsonl and data/splits/test_ids.json to exist
 """
 import json
 import logging
+import os
 from pathlib import Path
+
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from src.agents.extraction_agent import ExtractionAgent
 from src.agents.ir_builder_agent import IRBuilderAgent
@@ -35,7 +40,7 @@ def load_test_pairs() -> list[dict]:
     return pairs
 
 
-def run_one_pair(pair, asim_schema, baseline, extraction_agent, ir_builder) -> dict:
+def run_one_pair(pair, asim_schema, baseline, extraction_agent, ir_builder, verifier=None, verifier_blocking=False) -> dict:
     base = {
         "pair_id": pair["pair_id"],
         "complexity_tier": pair["complexity_tier"],
@@ -54,12 +59,16 @@ def run_one_pair(pair, asim_schema, baseline, extraction_agent, ir_builder) -> d
         base["system_a_error"] = str(e)
 
     try:
-        system_b_result = run_system_b(pair["nl_description"], asim_schema, extraction_agent, ir_builder)
+        system_b_result = run_system_b(
+            pair["nl_description"], asim_schema, extraction_agent, ir_builder,
+            verifier=verifier, verifier_blocking=verifier_blocking,
+        )
         base.update(
             system_b_kql=system_b_result.kql,
             system_b_success=system_b_result.success,
             system_b_attempts_used=system_b_result.attempts_used,
             system_b_reason=system_b_result.reason,
+            system_b_warnings=system_b_result.warnings,
         )
     except Exception as e:
         logger.warning("System B crashed on %s: %s", pair["pair_id"], e)
@@ -164,6 +173,19 @@ def main() -> None:
     baseline = BaselineRunner()
     extraction_agent = ExtractionAgent()
     ir_builder = IRBuilderAgent()
+    # Opt-in semantic-intent verifier (§4Q) — gated behind an env var so the
+    # default run stays directly comparable to every prior round's numbers;
+    # set WITH_VERIFIER=1 to measure its effect on a full comparison run.
+    # WITH_VERIFIER_BLOCKING=1 additionally makes its verdict block/trigger
+    # repair instead of just warning — measured live to cost 20+ points of
+    # completion/FVR and 33 points of RRR on this dataset; advisory (the
+    # default whenever the verifier is on at all) is the only mode actually
+    # recommended right now.
+    verifier = None
+    verifier_blocking = os.getenv("WITH_VERIFIER_BLOCKING") == "1"
+    if os.getenv("WITH_VERIFIER") == "1" or verifier_blocking:
+        from src.agents.verifier_agent import VerifierAgent
+        verifier = VerifierAgent()
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     out_path = RESULTS_DIR / "comparison_raw.jsonl"
@@ -172,7 +194,10 @@ def main() -> None:
     with out_path.open("w", encoding="utf-8") as f:
         for i, pair in enumerate(pairs):
             print(f"[{i + 1}/{len(pairs)}] {pair['pair_id']}", flush=True)
-            result = run_one_pair(pair, asim_schema, baseline, extraction_agent, ir_builder)
+            result = run_one_pair(
+                pair, asim_schema, baseline, extraction_agent, ir_builder,
+                verifier=verifier, verifier_blocking=verifier_blocking,
+            )
             results.append(result)
             f.write(json.dumps(result) + "\n")
             f.flush()
