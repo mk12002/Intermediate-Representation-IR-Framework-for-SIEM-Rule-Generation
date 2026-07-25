@@ -121,14 +121,27 @@ def _collect_caveats(pipeline: KqlPipeline) -> List[str]:
 def generate_kql(pipeline: KqlPipeline) -> str:
     """Deterministically compile a validated KqlPipeline into a KQL query string.
 
-    Caveats (see KqlPipeline.caveats) render as leading comment lines so
-    the abstention is visible directly in the generated query, not just
-    in the structured result around it. Rendered once here, not inside
-    compile_pipeline, since that function recurses into a join's
-    right_pipeline and a caveat rendered there would land at the wrong
-    place mid-query instead of all together at the top."""
-    body = compile_pipeline(pipeline)
+    §4AE — abstained=True means the IR Builder could not ground ANY
+    concrete detection logic for this description. Refuses to emit a
+    runnable query: an abstained pipeline that ran would scan
+    source_table with no filter, firing on every row, which is not a
+    safe no-op — it is an alert storm worse than not shipping a rule at
+    all. Renders the caveats explaining why, and nothing else; there is
+    deliberately no source_table reference here for a SIEM operator to
+    accidentally deploy.
+
+    Caveats (see KqlPipeline.caveats) otherwise render as leading
+    comment lines so a PARTIAL abstention (one omitted filter, real
+    logic everywhere else) is visible directly in the generated query,
+    not just in the structured result around it. Rendered once here,
+    not inside compile_pipeline, since that function recurses into a
+    join's right_pipeline and a caveat rendered there would land at the
+    wrong place mid-query instead of all together at the top."""
     caveats = _collect_caveats(pipeline)
+    if pipeline.abstained:
+        reason = "; ".join(caveats) if caveats else "the IR Builder could not ground any concrete detection logic for this description"
+        return f"// ABSTAINED — no executable query produced: {reason}"
+    body = compile_pipeline(pipeline)
     if not caveats:
         return body
     caveat_lines = [f"// CAVEAT: {c}" for c in caveats]

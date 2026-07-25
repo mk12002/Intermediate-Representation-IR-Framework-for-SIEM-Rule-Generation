@@ -1,0 +1,34 @@
+---
+title: Research Evaluation Pipeline
+---
+flowchart TD
+  A["Held-out real Sentinel rules<br/>18 locked from day 1 · N=5 runs"] --> B1["System A · direct LLM"]
+  A --> B2["System B · IR-mediated"]
+  B1 --> C["Metric harness"]
+  B2 --> C
+
+  C --> M1["Syntax Validity Rate (SVR)"]
+  C --> M2["Field Validity Rate (FVR)"]
+  C --> M3["Completion rate"]
+  C --> M4["Repair recovery rate"]
+  C --> M5["Logic Correctness 0–3<br/>two independent raters · Cohen's κ"]
+
+  M1 --> R["Comparative analysis"]
+  M2 --> R
+  M3 --> R
+  M4 --> R
+  M5 --> R
+
+  R --> RD["Reported as a score distribution,<br/>not a single pass/fail cutoff (§4AE)"]
+
+  D2["Real-data clarification eval<br/>50 fresh cases · 80% under-specified ·<br/>60% abstention"] -. "validates the<br/>clarification design" .-> R
+
+  classDef llm fill:#dbe9ff,stroke:#3b82c4,color:#12243a;
+  classDef det fill:#d9f2e3,stroke:#2e9e6b,color:#0f2e20;
+  classDef data fill:#eef1f4,stroke:#8b98a9,color:#1a2230;
+  classDef out fill:#e7dbf7,stroke:#7c4fc0,color:#25123f;
+
+  class B1,B2 llm;
+  class C det;
+  class M1,M2,M3,M4,M5,A,D2 data;
+  class R,RD out;

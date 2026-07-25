@@ -49,3 +49,6 @@ Thumbs.db
 # (data/rag_indexes/*.pkl) ARE small and ARE committed — they're the
 # actual build artifact this project depends on at runtime.
 .rag_corpora/
+
+# Blog drafts — publishing artifacts, not project source
+blogs/

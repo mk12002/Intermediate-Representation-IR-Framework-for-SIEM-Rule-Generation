@@ -337,3 +337,42 @@ def test_process_time_bracketed_by_joined_auth_window_uses_field_ref_not_literal
     }]
     assert pipeline_fires(ir, within_window) is True
     assert pipeline_fires(ir, no_correlated_auth_activity) is False
+
+
+@pytest.mark.regression_gate
+def test_total_abstention_never_fires_on_anything(agents):
+    """Regression anchor for §4AE's severe finding: a KqlPipeline that
+    could not ground ANY concrete detection logic was being expressed
+    as an empty `stages` list — which does NOT fail safe. A pipeline
+    with no WhereStage filters fires on EVERY row of source_table when
+    actually deployed; in a real SOC that is worse than not shipping a
+    rule at all (it buries the analyst in false positives and trains
+    them to ignore the alert). Fixed with KqlPipeline.abstained: True
+    means no concrete logic was groundable; the validator hard-rejects
+    an empty `stages` list that isn't explicitly marked abstained;
+    generate_kql() refuses to emit a runnable query for it; and
+    pipeline_fires() always returns False for it regardless of input.
+
+    This NL is deliberately maximally under-specified — a bare "known
+    IoC" reference with zero concrete values anywhere in the text — to
+    reliably trigger total (not partial) abstention. If the model finds
+    SOME partial signal and builds a real, narrower filter instead of
+    abstaining, that is also a correct, safe outcome (the prompt's own
+    guidance prefers partial-real over abstention) — this anchor checks
+    the should-not-fire property holds EITHER way, not that abstention
+    specifically occurs."""
+    nl = (
+        "This rule identifies web sessions for which the source IP address is a known IoC. "
+        "This rule uses ASIM and supports any web session source that complies with ASIM."
+    )
+    ir = _build(nl, agents)
+    should_not_fire = [
+        {"SrcIpAddr": "203.0.113.99", "Url": "http://totally-unrelated.example.com", "TimeGenerated": "2026-06-24T01:00:00Z"},
+        {"SrcIpAddr": "8.8.8.8", "Url": "https://contoso.com/login", "TimeGenerated": "2026-06-24T02:00:00Z"},
+    ]
+    assert pipeline_fires(ir, should_not_fire) is False, (
+        "a pipeline with no groundable detection logic must never fire on arbitrary "
+        "input — if it does, it is silently alerting on everything when deployed"
+    )
+    if ir.abstained:
+        assert ir.stages == [], "abstained=True must mean no executable logic, not a stale/inconsistent partial pipeline"

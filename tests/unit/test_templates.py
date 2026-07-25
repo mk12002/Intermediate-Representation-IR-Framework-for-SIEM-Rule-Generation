@@ -225,6 +225,40 @@ def test_join_right_pipeline_caveats_still_surface_at_the_top():
     # The nested pipeline's own body must not also gain a duplicate comment.
     assert kql.count("CAVEAT") == 1
 
+# --- §4AE: abstained pipelines refuse to compile a runnable query ---
+
+def test_abstained_pipeline_emits_no_runnable_query():
+    ir = KqlPipeline(
+        source_table=ASIMEventType.WEB_SESSION,
+        stages=[], abstained=True,
+        caveats=["no concrete IoC values were given for the source IP check"],
+    )
+    kql = generate_kql(ir)
+    assert kql == "// ABSTAINED — no executable query produced: no concrete IoC values were given for the source IP check"
+    assert "imWebSession" not in kql
+
+
+def test_abstained_pipeline_with_no_caveats_still_refuses_with_a_generic_reason():
+    ir = KqlPipeline(source_table=ASIMEventType.PROCESS, stages=[], abstained=True)
+    kql = generate_kql(ir)
+    assert kql.startswith("// ABSTAINED")
+    assert "imProcessCreate" not in kql
+
+
+def test_abstained_pipeline_ignores_any_stray_stages_and_still_refuses():
+    """abstained=True is authoritative regardless of what (if anything)
+    ended up in stages — found live as the actual failure shape this
+    fix targets (a model setting both at once would otherwise produce
+    an inconsistent result depending on which field won)."""
+    ir = KqlPipeline(
+        source_table=ASIMEventType.PROCESS,
+        stages=[WhereStage(filters=[Filter(field="ActingProcessName", operator=FilterOperator.EQ, value="cmd.exe")])],
+        abstained=True, caveats=["abstained anyway"],
+    )
+    kql = generate_kql(ir)
+    assert kql == "// ABSTAINED — no executable query produced: abstained anyway"
+
+
 def test_has_all_and_case_insensitive_in_operators():
     ir = KqlPipeline(
         source_table=ASIMEventType.PROCESS,

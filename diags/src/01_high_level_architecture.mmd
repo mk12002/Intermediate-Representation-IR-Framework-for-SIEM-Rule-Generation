@@ -1,0 +1,33 @@
+---
+title: High-Level End-to-End System Architecture (System B)
+---
+flowchart TD
+  A["Natural-language detection description<br/>(rule intent / SOP)"] --> EX["Extraction Agent<br/>LLM call 1"]
+  EX --> EO["ExtractionOutput<br/>event type · actors · action ·<br/>threshold &amp; time language · candidate fields"]
+  EO --> IB["IR Builder Agent<br/>LLM call 2 · optional RAG grounding"]
+  IB --> IR["KqlPipeline AST<br/>source_table · stages · caveats ·<br/>abstained · ambiguities"]
+  IR --> VAL["Schema Validator<br/>22 hard checks + constraint traceability"]
+  VAL --> DEC{"Valid?"}
+  DEC -- "no · attempt &lt; 3" --> RB["Repair Loop<br/>structured error → re-prompt"]
+  RB --> IB
+  DEC -- "no · 3 attempts used" --> ABS["Abstain<br/>refuse to emit a runnable query"]
+  DEC -- "yes" --> CMP["Deterministic Compiler<br/>no LLM — cannot hallucinate fields"]
+  CMP --> SYN["Syntax Validator"]
+  SYN --> VER["Verifier Agent · optional<br/>semantic intent check · advisory"]
+  VER --> OUT["Validated KQL detection<br/>+ caveats / ambiguities if any"]
+  OUT --> POST["Clarification &amp; Disambiguation<br/>if gaps or forks remain"]
+  OUT --> DEPLOY["SIEM deployment / SOC usage"]
+
+  classDef llm fill:#dbe9ff,stroke:#3b82c4,color:#12243a;
+  classDef det fill:#d9f2e3,stroke:#2e9e6b,color:#0f2e20;
+  classDef dec fill:#fdeecb,stroke:#d19a2a,color:#3a2c0a;
+  classDef out fill:#e7dbf7,stroke:#7c4fc0,color:#25123f;
+  classDef stop fill:#fadbdb,stroke:#c0453b,color:#3f1310;
+  classDef data fill:#eef1f4,stroke:#8b98a9,color:#1a2230;
+
+  class EX,IB,VER llm;
+  class VAL,CMP,SYN,RB,POST det;
+  class DEC dec;
+  class IR,EO data;
+  class OUT,DEPLOY out;
+  class ABS stop;

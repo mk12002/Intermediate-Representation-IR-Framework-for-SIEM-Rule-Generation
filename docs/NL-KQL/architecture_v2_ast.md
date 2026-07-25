@@ -326,6 +326,15 @@ class KqlPipeline(BaseModel):
     # data it couldn't concretely ground. Rendered as leading `// CAVEAT:`
     # comments by the compiler.
     caveats: List[str] = Field(default_factory=list)
+    # §4AE — True means NO concrete detection logic could be grounded at
+    # all (a TOTAL, not partial, abstention). A pipeline with no
+    # WhereStage filters fires on EVERY row of source_table when
+    # actually deployed — not a safe no-op, an alert storm worse than
+    # shipping no rule. The compiler refuses to emit a runnable query
+    # when this is True; the interpreter always treats it as firing on
+    # nothing; the validator hard-rejects an empty `stages` list that
+    # isn't explicitly marked this way (EMPTY_PIPELINE_NOT_MARKED_ABSTAINED).
+    abstained: bool = False
 
 # Resolves the JoinStage.right_pipeline forward reference now that
 # KqlPipeline itself is defined.
@@ -464,19 +473,17 @@ The repair prompt is intentionally narrow — "fix this specific error" rather t
 
 ## Schema Validator — Specification
 
-**Status note:** this section originally documented a 5-check sketch.
-Live-testing after the AST migration shipped found the sketch's checks
-were a small fraction of what the original flat `SecurityIR` validator
-had, and one of the sketch's own documented checks (`MISSING_TIME_WINDOW`)
-didn't actually exist in the shipped code at all. The list below is the
-real, current check set in `src/ir_engine/ir_validator.py` — see
-`PROJECT_STATUS.md` §4K–§4P for which of these were restored, genuinely
-new, or added in the latest hardening round. There are now 15 hard-error
-types plus one advisory (non-blocking) warning class; both are exhaustively
-covered by `tests/unit/test_validator_inventory.py`, which cross-checks
-this exact list against every `error_type="..."` literal the source file
-actually contains — the insurance against this table (or the code) silently
-drifting out of sync again.
+**Status note (resynced §4AE):** this section originally documented a
+5-check sketch, then drifted stale again as checks accumulated through
+§4K–§4AE without this table being updated each time. The list below is
+the real, current check set in `src/ir_engine/ir_validator.py` — see
+`PROJECT_STATUS.md` §4K–§4AE for which of these were restored,
+genuinely new, or added in the latest hardening round. There are now
+22 hard-error types plus two advisory (non-blocking) warning classes;
+all are exhaustively covered by `tests/unit/test_validator_inventory.py`,
+which cross-checks this exact list against every `error_type="..."`
+literal the source file actually contains — the insurance against this
+table (or the code) silently drifting out of sync again.
 
 Pure Python, no LLM call. The validator is a **stateful schema tracker**:
 it walks the AST stage by stage, maintaining `available_schema` (which
@@ -502,6 +509,13 @@ addresses exactly one issue:
 | `UNKNOWN_FUNCTION_IN_EXPRESSION` | An `ExtendStage` expression calling a function name not in the ~120-entry real-KQL-function whitelist | extend |
 | `JOIN_KEY_NOT_FOUND_LEFT` / `_RIGHT` | A `join_on` key missing from either side's available schema at that point | join |
 | `EMPTY_UNION` | A `UnionStage` with no tables | union |
+| `REDUNDANT_RAW_TIME_FIELD_IN_GROUP_BY` | `group_by` includes a raw time field already covered by `time_window`'s own `bin()` | summarize |
+| `DEGENERATE_SPREAD_OVER_SINGLE_ROW` | `stdev`/`variance` computed over a group already collapsed to one row by an identical prior `time_window` — always 0/null | summarize |
+| `MV_EXPAND_AS_TYPE_WITH_MULTIPLE_FIELDS` | `MvExpandStage.as_type` set with more than one field — `to typeof(...)` is single-field-only in real KQL | mv_expand |
+| `PARSE_EXTRACTS_NOTHING` | A `ParseStage` with no `"column"`-type tokens — extracts no field at all, a no-op | parse |
+| `DUPLICATE_PARSE_COLUMN` | Two `"column"`-type tokens in the same `ParseStage` naming the same field | parse |
+| `LITERAL_MATCHES_SCHEMA_FIELD` | §4AB — a comparison-operator (`==`/`!=`/`=~`/`!~`/`>`/`<`/`>=`/`<=`) `Filter.value` that is itself a real in-scope column name — almost certainly should have been `field_ref`, not a literal, generalizing the §4AA `field_ref` fix into a standing guard against the model reverting to the old broken pattern | where |
+| `EMPTY_PIPELINE_NOT_MARKED_ABSTAINED` | §4AE — an empty `stages` list with `abstained` not set to `true`. Forces the model to be explicit about WHY a pipeline is empty: an empty, unmarked pipeline compiles to a bare table scan that fires on every row when deployed, which is never safe to leave ambiguous | (pipeline-level) |
 
 **Advisory warning (non-blocking) — `ValidationResult.warnings`:** a
 literal-value provenance check, added §4P, flags any string `Filter.value`
@@ -514,6 +528,23 @@ values across 42 successful cases, only 1 was a genuine invented literal
 domain knowledge (a named tool's real flags, a DNS enum value, a trivial
 `.exe` suffix) that a hard error would have wrongly rejected. See
 `PROJECT_STATUS.md` §4P for the full trial breakdown.
+
+**Second advisory warning — `ALIAS_IMPLIES_FILTER` (§4AD):** flags a
+`SummarizeStage`/`MakeSeriesStage` aggregation whose `result_alias`
+contains a curated condition/status term (e.g. "NXDomain", "Failed",
+"Admin") when NO `WhereStage` filters anything upstream at all — the
+generalization of a real bug found live (an alias named
+`NXDomainCount` that was actually a plain `count()` with no NXDOMAIN
+filter anywhere, silently measuring the wrong thing). Shipped only
+after two narrower designs (a generic-word stoplist, then a curated
+allowlist matched against filter literal text) were calibrated live
+and both measured 100% false-positive rates — real, correct filters
+almost always use schema vocabulary (field names, enum values,
+thresholds) that shares no substring with the alias's natural-language
+word. The shipped version checks structure ("is there any filter
+upstream at all"), not vocabulary match, and measured 0/20 false
+positives. See `PROJECT_STATUS.md` §4AD for the full calibration
+history of both rejected designs.
 
 `ExtendStage.computed_fields[].expression` is the one field this
 validator cannot fully check the way it checks everything else — it's a

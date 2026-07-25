@@ -1,0 +1,31 @@
+---
+title: Direct LLM (System A) vs IR-Mediated Pipeline (System B)
+---
+flowchart TD
+  subgraph SA["System A — direct generation"]
+    direction TB
+    A1["NL description"] --> A2["Single LLM prompt"]
+    A2 --> A3["KQL string"]
+    A3 --> A4["No validation · no repair<br/>Field Validity Rate ≈ 6.7%"]
+  end
+
+  subgraph SB["System B — IR-mediated"]
+    direction TB
+    B1["NL description"] --> B2["Extraction Agent"]
+    B2 --> B3["IR Builder Agent"]
+    B3 --> B4["Schema Validator + bounded repair"]
+    B4 --> B5["Deterministic Compiler"]
+    B5 --> B6["Validated KQL<br/>Field Validity Rate ≈ 86.7%"]
+  end
+
+  classDef llm fill:#dbe9ff,stroke:#3b82c4,color:#12243a;
+  classDef det fill:#d9f2e3,stroke:#2e9e6b,color:#0f2e20;
+  classDef stop fill:#fadbdb,stroke:#c0453b,color:#3f1310;
+  classDef out fill:#e7dbf7,stroke:#7c4fc0,color:#25123f;
+  classDef data fill:#eef1f4,stroke:#8b98a9,color:#1a2230;
+
+  class A2,B2,B3 llm;
+  class B4,B5 det;
+  class A4 stop;
+  class B6 out;
+  class A1,A3,B1 data;

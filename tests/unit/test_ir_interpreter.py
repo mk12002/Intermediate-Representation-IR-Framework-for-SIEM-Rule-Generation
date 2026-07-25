@@ -9,6 +9,22 @@ from src.ir_engine.ir_schema import (
 )
 
 
+def test_abstained_pipeline_never_fires_regardless_of_input():
+    """§4AE: an abstained pipeline has no deployable query at all
+    (generate_kql refuses to emit one) — interpreting it must always
+    return empty, matching that contract, regardless of what (if
+    anything) is in stages or what rows are passed in. This is the
+    should-not-fire guarantee the regression anchor checks: a real
+    abstention measures as firing on NOTHING, never on everything."""
+    ir = KqlPipeline(
+        source_table=ASIMEventType.WEB_SESSION, stages=[], abstained=True,
+        caveats=["no concrete IoC values were given"],
+    )
+    assert pipeline_fires(ir, [{"SrcIpAddr": "10.0.0.5"}]) is False
+    assert pipeline_fires(ir, [{"SrcIpAddr": "8.8.8.8"}, {"SrcIpAddr": "1.1.1.1"}]) is False
+    assert pipeline_fires(ir, []) is False
+
+
 def test_simple_where_fires_on_matching_row_only():
     ir = KqlPipeline(
         source_table=ASIMEventType.AUTHENTICATION,

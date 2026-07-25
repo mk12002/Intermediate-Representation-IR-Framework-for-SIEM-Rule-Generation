@@ -189,7 +189,10 @@ def _bad_join_key_not_found_left():
         source_table=ASIMEventType.AUTHENTICATION,
         stages=[JoinStage(
             kind=JoinKind.INNER,
-            right_pipeline=KqlPipeline(source_table=ASIMEventType.DNS, stages=[]),
+            right_pipeline=KqlPipeline(
+                source_table=ASIMEventType.DNS,
+                stages=[WhereStage(filters=[Filter(field="DnsQuery", operator=FilterOperator.EQ, value="example.com")])],
+            ),
             join_on=["DnsQuery"],
         )],
     )
@@ -203,7 +206,10 @@ def _bad_join_key_not_found_right():
         source_table=ASIMEventType.AUTHENTICATION,
         stages=[JoinStage(
             kind=JoinKind.INNER,
-            right_pipeline=KqlPipeline(source_table=ASIMEventType.DNS, stages=[]),
+            right_pipeline=KqlPipeline(
+                source_table=ASIMEventType.DNS,
+                stages=[WhereStage(filters=[Filter(field="DnsQuery", operator=FilterOperator.EQ, value="example.com")])],
+            ),
             join_on=["TargetUsername"],
         )],
     )
@@ -248,6 +254,10 @@ def _bad_literal_matches_schema_field():
     )
 
 
+def _bad_empty_pipeline_not_marked_abstained():
+    return KqlPipeline(source_table=ASIMEventType.NETWORK_SESSION, stages=[])
+
+
 _KNOWN_BAD_IRS = {
     "INVALID_SOURCE_TABLE": _bad_invalid_source_table,
     "FIELD_NOT_FOUND": _bad_field_not_found,
@@ -270,6 +280,7 @@ _KNOWN_BAD_IRS = {
     "PARSE_EXTRACTS_NOTHING": _bad_parse_extracts_nothing,
     "DUPLICATE_PARSE_COLUMN": _bad_duplicate_parse_column,
     "LITERAL_MATCHES_SCHEMA_FIELD": _bad_literal_matches_schema_field,
+    "EMPTY_PIPELINE_NOT_MARKED_ABSTAINED": _bad_empty_pipeline_not_marked_abstained,
 }
 
 

@@ -582,6 +582,30 @@ def validate_ir(
                 f"Pick one of: {', '.join(sorted(base_schema.keys()))}."
             ),
         )
+    # §4AE: an empty `stages` list is only ever safe to compile when it's
+    # an EXPLICIT, declared abstention (KqlPipeline.abstained=True) — see
+    # ir_schema.py's long comment on that field for why a silent empty
+    # pipeline doesn't fail safe (it fires on every row when deployed,
+    # not on none). This forces the model to be honest about WHY it's
+    # empty rather than leaving that ambiguous, the same principle the
+    # caveats mechanism already applies to individual omitted filters.
+    if not pipeline.stages and not pipeline.abstained:
+        return ValidationResult(
+            passed=False,
+            error_type="EMPTY_PIPELINE_NOT_MARKED_ABSTAINED",
+            message=(
+                "This pipeline has no stages at all but abstained is not set to "
+                "true. An empty pipeline compiles to a bare table reference with "
+                "no filter, which fires on EVERY row when deployed — never leave "
+                "this ambiguous. If no concrete detection logic can be grounded "
+                "for this description at all, set abstained=true (with a caveats "
+                "entry explaining why) and leave stages empty — the compiler will "
+                "then correctly refuse to emit a runnable query instead of "
+                "silently emitting one that matches everything. If SOME concrete "
+                "logic CAN be grounded, add the stages for it instead of leaving "
+                "this pipeline empty."
+            ),
+        )
     available_schema: Set[str] = set(base_schema.get(source, {}).get("fields", []))
     count_like_aliases: Set[str] = set()
     prior_summarize_signature: Optional[tuple] = None

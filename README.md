@@ -3,7 +3,17 @@
 **Reducing syntax and field hallucination in LLM-generated Microsoft Sentinel detection rules via an explicit, schema-validated intermediate representation.**
 
 > Independent personal research project. Not affiliated with any employer.
-> Status: 🚧 Active development — dataset construction phase
+> Status: ✅ Core result established and hardened across ~30 rounds. Two
+> IR architectures shipped (a flat schema, then an AST of typed pipeline
+> stages); primary comparison, ablations, and a held-out generalization
+> test all complete; an execution-validation substitute (`src/execution/`)
+> and a retrieval-augmented retrieval layer (`src/retrieval/`) both built
+> and measured. Current state: `docs/NL-KQL/PROJECT_STATUS.md` (full
+> chronological record) and `docs/NL-KQL/RESULTS_DRAFT.md` (current-state
+> summary) — both kept reconciled with shipped code. The roadmap/timeline
+> below this point in the README predates that work and is not current;
+> see [Project Status & Roadmap](#project-status-roadmap) for the
+> corrected summary.
 
 ---
 
@@ -325,9 +335,28 @@ python eval/run_comparison.py
 
 ## Project Status & Roadmap
 
-**Current phase:** Dataset construction (see [timeline](#indicative-timeline) below).
+**⚠️ The timeline below is the ORIGINAL plan, kept for historical
+context — it does not reflect current status.** All six phases it
+describes are complete. Current numbers (primary comparison, ablations,
+held-out generalization, RAG A/B, the independent-rater Logic
+Correctness check): `docs/NL-KQL/RESULTS_DRAFT.md`. Full causal history
+of how the project actually unfolded (~30 rounds, two IR architectures,
+several found-and-fixed bug classes including a severe abstention-
+safety issue): `docs/NL-KQL/PROJECT_STATUS.md`.
 
-### Indicative timeline
+**What actually shipped, beyond the original plan**: an execution-
+validation substitute (`src/execution/ir_interpreter.py`, a pandas
+re-implementation of the IR's intended semantics, since a real Kusto
+emulator was environment-blocked) and a retrieval-augmented generation
+layer (`src/retrieval/`, two TF-IDF indexes — a third was built, A/B
+tested, and removed on measured evidence). Both are documented and
+measured, not just attempted.
+
+**What's still genuinely open**: a human (not just AI) rater on Logic
+Correctness (`eval/score_logic_correctness.py` is built for this, not
+yet run); rotating the Azure API key exposed during initial setup.
+
+### Indicative timeline (original plan, historical)
 
 | Phase | Duration | Output |
 |---|---|---|
@@ -338,7 +367,7 @@ python eval/run_comparison.py
 | Stratified/statistical analysis | 2 weeks | Final tables, significance tests, complexity breakdowns |
 | Write-up | 3–4 weeks | Paper/report draft |
 
-### Known risks
+### Known risks (original plan; see PROJECT_STATUS.md for how each actually played out)
 
 - **No mature open-source KQL parser/linter** may be readily available — may require scoping the syntax checker to the operator subset actually used in the dataset rather than full grammar coverage (documented explicitly as a limitation, not glossed over).
 - Dataset descriptions in the source repo are sometimes terse or loosely correlated with query logic — manual review step exists specifically to screen for this.
@@ -351,7 +380,7 @@ python eval/run_comparison.py
 Stated up front, not discovered later:
 
 - **Single platform, single schema standard.** KQL/Sentinel + ASIM only. Sigma, SPL, and OCSF are future work, not demonstrated here.
-- **Syntax validation, not full telemetry execution validation.** The study measures whether a query parses and references real fields — not whether it produces correct results against live data. This is a deliberate scope boundary.
+- **Syntax/field validation plus an execution-validation SUBSTITUTE, not real telemetry execution.** A real Kusto emulator/seeded workspace is environment-blocked (no Docker, no Azure credentials, confirmed directly). Built the honest substitute instead: `src/execution/ir_interpreter.py`, a pandas re-implementation of the IR's own intended semantics, run against synthetic should-fire/should-not-fire events. This validates the IR's selected logic, not the compiled-KQL-execution surface against a real engine — a real but different guarantee than the original scope boundary stated, and the one actually buildable here.
 - **Dataset size (100–150 pairs)** is appropriate for a scoped individual project but small relative to large-scale code-gen benchmarks. Results are reported with confidence intervals, not bare point estimates.
 - **Manual logic-correctness scoring** introduces some subjectivity even with a rubric.
 - **Source data is cleaner than real-world analyst language.** Paraphrasing partially addresses this but doesn't fully replicate field-collected SOC prose.
@@ -364,7 +393,7 @@ Not part of this project's scope, but natural next steps once the core result is
 |---|---|---|
 | Multi-platform generation (Sigma, SPL) | New Jinja2 templates consuming the same IR | Each platform needs its own schema reference and dataset slice to evaluate fairly |
 | OCSF as a second normalization layer | Cross-platform field mapping | Only necessary once a second platform is in scope |
-| Telemetry execution validation | Running generated KQL against synthetic data (`Sample Data/` is a natural source) for real precision/recall | Substantially larger engineering lift than syntax/field validation |
+| Real-engine telemetry execution validation | Running generated KQL against an actual Kusto emulator/seeded workspace for real precision/recall | Environment-blocked here (no Docker, no Azure credentials); the pandas-based substitute (`src/execution/ir_interpreter.py`) is already built and in active use, but validates the IR's own semantics, not a real engine's |
 | MITRE ATT&CK mapping | Automatic technique/tactic tagging on generated rules | Orthogonal to the core hallucination question this project tests |
 | Production hardening | RBAC, containerization, observability, scaling | Pure engineering, no research content |
 

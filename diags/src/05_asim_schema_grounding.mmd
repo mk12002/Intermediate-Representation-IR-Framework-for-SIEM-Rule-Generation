@@ -1,0 +1,37 @@
+---
+title: ASIM Schema Grounding
+---
+flowchart TD
+  IB["IR Builder Agent<br/>proposes field references"] --> REF["ASIM Field Reference<br/>asim_field_reference.json"]
+  RAG["RAG schema index · optional<br/>TF-IDF, off by default"] -. "grounds prompt" .-> IB
+
+  REF --> E1["imAuthentication"]
+  REF --> E2["imNetworkSession"]
+  REF --> E3["imProcessCreate"]
+  REF --> E4["imFileEvent"]
+  REF --> E5["imDns"]
+  REF --> E6["imWebSession"]
+  REF --> E7["imRegistry"]
+
+  E1 --> VAL["Schema Validator"]
+  E2 --> VAL
+  E3 --> VAL
+  E4 --> VAL
+  E5 --> VAL
+  E6 --> VAL
+  E7 --> VAL
+
+  VAL --> OK["All fields exist for the<br/>chosen event type → pass"]
+  VAL --> ERR["FIELD_NOT_FOUND<br/>(with closest-match hint) → repair"]
+
+  classDef llm fill:#dbe9ff,stroke:#3b82c4,color:#12243a;
+  classDef det fill:#d9f2e3,stroke:#2e9e6b,color:#0f2e20;
+  classDef data fill:#eef1f4,stroke:#8b98a9,color:#1a2230;
+  classDef stop fill:#fadbdb,stroke:#c0453b,color:#3f1310;
+  classDef future fill:#f4f4f4,stroke:#b8b8b8,color:#7a7a7a,stroke-dasharray:5 4;
+
+  class IB llm;
+  class VAL det;
+  class REF,E1,E2,E3,E4,E5,E6,E7,OK data;
+  class ERR stop;
+  class RAG future;

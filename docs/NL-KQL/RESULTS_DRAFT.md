@@ -110,20 +110,40 @@ index.
 externally, with its IQR, not a bare point estimate (`PROJECT_STATUS.md`
 §4V).
 
-**Logic Correctness, inter-rater replication, N=1 rater-pair (new
-§4AD)**: the SAME 18-rule set, scored on a 3-point rubric by two
-independent raters with zero visibility into each other's reasoning:
-**rater1 72.2%, rater2 88.9%**. Quadratic-weighted Cohen's κ = 0.645
-("substantial" agreement on relative quality). Recast into this
-project's historical binary pass/fail convention: rater1 72.2% pass
-rate, rater2 94.4% pass rate, **κ = 0.265 ("fair")** — markedly weaker.
+**Logic Correctness, inter-rater replication, N=1 rater-pair (§4AC)**:
+the SAME 18-rule set, scored on a 3-point rubric by two independent
+raters with zero visibility into each other's reasoning. Quadratic-
+weighted Cohen's κ = 0.645 ("substantial" agreement on relative
+quality). Recast into the historical binary pass/fail convention used
+through §4AC: κ = 0.265 ("fair") — markedly weaker, meaning the
+pass/fail LINE is where the raters diverge, not the underlying quality
+judgment.
+
+**Reported in its reliable ordinal form (§4AE), not the fragile binary
+one** — this project's new standard going forward:
+
+| Score | Rater 1 | Rater 2 |
+|---|---|---|
+| 3/3 | 50.0% (9/18) | 77.8% (14/18) |
+| 2/3 | 22.2% (4/18) | 16.7% (3/18) |
+| 1/3 | 22.2% (4/18) | 0.0% (0/18) |
+| 0/3 | 5.6% (1/18) | 5.6% (1/18) |
+| Median | 2.5/3 | 3.0/3 |
+| Mean | 2.17/3 (72.2%) | 2.67/3 (88.9%) |
+
+Both raters agree on the same single 0/3 case (`83e70a34`, the
+structurally-unsupported top-1M-exclusion pattern) — agreement is
+strongest at the extremes and weakest in the middle of the scale,
+exactly where a binary cutoff is most sensitive to which side of the
+line a 2-vs-3 judgment lands on.
 
 **Combined, honest uncertainty statement**: held-out Logic Correctness
-is best reported as **82.4%, with two independently-measured and
-different sources of spread**: model run-to-run variance (IQR 5.9
-points, N=5) and inter-rater variance (range 72.2–88.9%, i.e. ~17
-points, N=1 rater-pair, not yet replicated). Neither source alone was
-previously visible; both are now named.
+has two independently-measured and different sources of spread: model
+run-to-run variance (IQR 5.9 points, N=5, on the historical binary
+metric) and inter-rater variance (mean 2.17–2.67/3, N=1 rater-pair, not
+yet replicated, on the ordinal metric). Neither source alone was
+previously visible; both are now named, and the ordinal form is the
+one to cite — see §4AE methodology note below.
 
 ## 5. The synthetic-vs-real gap, assembled into one statement
 
@@ -184,24 +204,42 @@ the condition it named — now fixed in the prompt regardless of RAG.
 vocabulary queries worked, vaguer natural-language ones often didn't,
 and the full A/B found no benefit worth crediting against the added
 complexity). The ASIM-schema index (measured 3/3 correct retrieval)
-and worked-examples index are kept. Re-adding construct retrieval is
-explicitly scoped as future work *if* testing semantic embeddings — the
-wash result is specific to lexical (TF-IDF) retrieval, not a verdict on
-retrieval-augmentation in general.
+and worked-examples index are kept.
 
-## 8. A newly-confirmed severe finding: abstention doesn't fail safely
+**This is now a final decision, not an open question awaiting a
+bigger sample (§4AE)**: the pre-committed stopping rule is that
+RAG-on-by-default would need to move Logic Correctness by more than
+this project's own measured binary-cutoff noise band (κ=0.265) — and
+the measured effect (45-39 vs 48-45, sign flipping by rater) is already
+smaller than that band in both directions. That is a conclusion, not
+an inconclusive result: RAG's effect, at this rubric and sample size,
+is provably smaller than the metric's own measurement noise. A larger
+slice is only worth running to test a specific different change
+(semantic embeddings instead of TF-IDF) — not as a repeat of the same
+measurement.
 
-When the IR Builder cannot ground any concrete filter at all, it
-sometimes (confirmed reproducible, ~1/3 of trials on the hardest such
-case) emits a `KqlPipeline` with a `source_table` and an honest
-caveat but **zero stages**. This does not fail closed — a pipeline
-with no `WhereStage` fires on every single row of the source table.
-Three of the 18 held-out cases scored as "honest abstention, correct"
-in this round's Logic Correctness pass have exactly this shape. The
-scoring is not retracted (an honest abstention is still better than an
-invented filter), but "honest" and "safe to deploy as-is" are not the
-same property — this is the single most important newly-found item for
-future work, ranked above every other open item below.
+## 8. A severe finding, found and FIXED this round: abstention now actually fails safe
+
+When the IR Builder cannot ground any concrete filter at all, it was
+found (confirmed reproducible, ~1/3 of trials on the hardest such
+case) to sometimes emit a `KqlPipeline` with a `source_table` and an
+honest caveat but **zero stages** — which does not fail closed. A
+pipeline with no `WhereStage` fires on every single row of the source
+table when deployed: not a safe no-op, but an alert storm worse than
+shipping no rule at all. Three of the 18 held-out cases scored as
+"honest abstention, correct" had exactly this shape.
+
+**Fixed, not just documented**: `KqlPipeline.abstained: bool` — the
+compiler refuses to emit a runnable query when set, the interpreter
+always treats it as firing on nothing, and the validator hard-rejects
+an empty `stages` list that isn't explicitly marked this way. Live-
+verified 5/5 on the case that exposed the bug, including a real
+downstream bug found while verifying (the syntax validator
+misclassified the abstention comment as a template bug — fixed). All
+three previously-flagged held-out cases were re-run and now correctly
+abstain with the zero-fire guarantee actually true, not merely
+assumed. A permanent regression anchor now checks this property on
+every future change. Full detail: `PROJECT_STATUS.md` §4AE.
 
 ---
 
@@ -242,15 +280,18 @@ when grounding fails completely.
   human disagreement could be, not an upper bound — AI raters sharing
   training data and rubric interpretation could plausibly agree MORE
   with each other than either would with a human rater.
-- **RAG's Logic Correctness verdict is N=1 (18 cases, one rater-pair).**
-  "Inconclusive" is the honest current state, not "no effect" — a
-  larger frozen slice, run through the same double-rated process,
-  is the direct next step before either crediting or permanently
-  shelving RAG.
-- **The empty-pipeline-fires-on-everything finding (§7 above) was found
-  this round and is not yet fixed** — it changes how some historical
-  "honest abstention = correct" scores should be weighted, though no
-  past score has been retracted.
+- **RAG's Logic Correctness effect, while measured smaller than this
+  project's own metric noise (a real conclusion, not a non-answer, per
+  §4AE's pre-committed threshold), is still N=1 (18 cases, one rater-
+  pair)** — a different change (semantic embeddings, not more TF-IDF
+  measurement) is the only thing that would warrant revisiting this.
+- **The empty-pipeline-fires-on-everything finding was found AND fixed
+  this round** (§4AE) — `KqlPipeline.abstained`, compiler refusal,
+  interpreter zero-fire guarantee, validator hard-check, live-verified
+  5/5, permanent regression anchor added. No past Logic Correctness
+  score was retracted (the scores measured what they claimed to), but
+  the deployment-safety property implicitly assumed alongside three of
+  them is now actually guaranteed rather than merely unexamined.
 - **n=45** (primary) / **n=18** (held-out) are both small; H4 is not
   resolved at either sample size.
 - **Model non-determinism is real and load-bearing** — at least three

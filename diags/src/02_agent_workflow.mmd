@@ -1,0 +1,26 @@
+---
+title: Agent & Stage Workflow — 2 LLM calls, everything else deterministic
+---
+flowchart TD
+  NL["NL detection description"] --> EX["Extraction Agent"]
+  EX --> IB["IR Builder Agent"]
+  IB --> VAL["Schema Validator<br/>22 checks"]
+  VAL --> CMP["KQL Compiler"]
+  CMP --> SYN["Syntax Validator"]
+  SYN --> KQL["Validated KQL"]
+
+  KQL --> VER["Verifier Agent<br/>semantic intent · advisory"]
+  KQL --> SCAN["Ambiguity-Scan Agent<br/>post-build fork detection · §4AH"]
+  KQL --> GAP["Gap Checker<br/>find_gaps() from caveats"]
+
+  VER -. "flag (non-blocking)" .-> KQL
+  SCAN -. "closed-option questions" .-> CLAR["Clarification UI"]
+  GAP -. "open questions" .-> CLAR
+
+  classDef llm fill:#dbe9ff,stroke:#3b82c4,color:#12243a;
+  classDef det fill:#d9f2e3,stroke:#2e9e6b,color:#0f2e20;
+  classDef out fill:#e7dbf7,stroke:#7c4fc0,color:#25123f;
+
+  class EX,IB,VER,SCAN llm;
+  class VAL,CMP,SYN,GAP det;
+  class NL,KQL,CLAR out;

@@ -373,6 +373,26 @@ Stage = Union[
 ]
 
 
+class Ambiguity(BaseModel):
+    """§4AG — a genuine FORK in how to read the description: multiple
+    structurally different IRs would each be a defensible reading of
+    the SAME input (e.g. "hidden in the recycle bin" supports both a
+    process executing FROM that folder, ProcessEvent, and a file
+    planted IN it, FileEvent — both real, neither more "correct" than
+    the other absent more context). This is NOT the same gap class
+    `caveats` covers: caveats discloses information that's ABSENT;
+    Ambiguity discloses a choice made among options that are all
+    PRESENT as equally valid readings. The IR Builder still commits to
+    one reading and builds it into `stages` (picked_option records
+    which) — Ambiguity is disclosure of that choice, not an excuse to
+    avoid making one, the same "self-disclose, don't silently guess"
+    principle caveats already established, applied to chosen-among-
+    multiple instead of omitted-entirely."""
+    description: str
+    options: List[str] = Field(min_length=2)
+    picked_option: str
+
+
 class KqlPipeline(BaseModel):
     model_config = ConfigDict(extra="forbid")
     source_table: Union[ASIMEventType, str]
@@ -388,6 +408,29 @@ class KqlPipeline(BaseModel):
     # generated query) since this is the model's own account of a
     # decision it made, not an external critique of the result.
     caveats: List[str] = Field(default_factory=list)
+    # §4AE — found live: a PARTIAL abstention (omit one ungroundable
+    # filter, keep the rest, disclose via caveats) is safe, but a TOTAL
+    # abstention (no concrete detection logic groundable at all) was
+    # being expressed as an empty `stages` list — which doesn't fail
+    # safe. A KqlPipeline with no WhereStage filtering anything fires on
+    # EVERY row of source_table when actually deployed; "abstained" is
+    # not "inert," it's "alerts on everything," which is worse than not
+    # shipping a rule at all (it buries the analyst in false positives
+    # and trains them to ignore the alert). abstained=True is the
+    # model's explicit declaration that it could not ground ANY
+    # concrete detection logic — generate_kql() refuses to emit runnable
+    # KQL for it (renders caveats only, no source_table query), and
+    # pipeline_fires() always returns False for it, regardless of what
+    # (if anything) ended up in stages. The validator hard-rejects an
+    # empty stages list that ISN'T explicitly marked abstained — an
+    # empty pipeline must always say why, not just silently exist.
+    abstained: bool = False
+    # §4AG — see Ambiguity above. Empty when the description supports
+    # only one reasonable reading (the common case) — only populate
+    # when a SECOND reading is genuinely equally defensible, not for
+    # routine field-naming choices that already have an established
+    # convention (Src*/Dst* prefix selection, ASIM table naming).
+    ambiguities: List[Ambiguity] = Field(default_factory=list)
 
 
 # Resolves the JoinStage.right_pipeline forward reference now that

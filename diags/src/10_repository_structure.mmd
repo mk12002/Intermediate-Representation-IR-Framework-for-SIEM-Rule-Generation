@@ -1,0 +1,28 @@
+---
+title: Actual Repository Structure
+---
+flowchart TD
+  ROOT["repo root"] --> SRC["src/"]
+  ROOT --> TST["tests/ · unit + live integration"]
+  ROOT --> EVL["eval/ · harnesses + results"]
+  ROOT --> DAT["data/ · schema · processed pairs · rag_indexes"]
+  ROOT --> DOC["docs/ · PROJECT_STATUS · architecture"]
+  ROOT --> APP["app.py · Streamlit demo"]
+
+  SRC --> AG["agents/<br/>extraction · ir_builder ·<br/>ambiguity_scan · verifier"]
+  SRC --> IE["ir_engine/<br/>ir_schema · ir_validator"]
+  SRC --> GN["generator/<br/>compiler · filters"]
+  SRC --> VD["validation/<br/>syntax_validators"]
+  SRC --> PL["pipeline/<br/>system_b · repair_loop"]
+  SRC --> CL["clarification/<br/>gap_checker · clarify"]
+  SRC --> EXE["execution/<br/>ir_interpreter"]
+  SRC --> RT["retrieval/<br/>TF-IDF RAG · opt-in"]
+  SRC --> BL["baseline/<br/>System A · direct gen"]
+
+  classDef root fill:#e7dbf7,stroke:#7c4fc0,color:#25123f;
+  classDef dir fill:#eef1f4,stroke:#8b98a9,color:#1a2230;
+  classDef core fill:#d9f2e3,stroke:#2e9e6b,color:#0f2e20;
+
+  class ROOT root;
+  class SRC,TST,EVL,DAT,DOC,APP dir;
+  class AG,IE,GN,VD,PL,CL,EXE,RT,BL core;

@@ -4849,6 +4849,476 @@ analyst would actually write," named in one place for the first time.
 
 ---
 
+## 4AE. Refuse-to-emit shipped and verified; the abstention story
+     re-validated; Logic Correctness re-reported in its reliable
+     ordinal form; the RAG decision pre-committed
+
+Direct response to the critique that §4AD's abstention finding was
+"a correctness emergency," not a weak point — and that it was correct
+to rank it above everything else.
+
+### Refuse-to-emit: live-verified, not just unit-tested
+
+`KqlPipeline.abstained: bool` added. `generate_kql()` refuses to emit
+a runnable query when `abstained=True` (renders only the caveat
+explaining why); `pipeline_fires()` always returns `False` for it,
+regardless of what (if anything) ended up in `stages`; the validator
+hard-rejects an empty `stages` list that isn't explicitly marked
+`abstained` (`EMPTY_PIPELINE_NOT_MARKED_ABSTAINED`); `ir_builder_agent.py`
+gained explicit guidance teaching when to set it, preferring a real
+partial filter over abstaining whenever even one concrete condition is
+groundable. **A real downstream bug was found while verifying this,
+before trusting it**: `repair_loop.py`'s syntax validator ran
+`validate_kql_syntax()` on the abstained `// ABSTAINED ...` comment
+output and correctly found "no table reference," misclassifying every
+legitimate abstention as a `TEMPLATE_BUG` — fixed by skipping syntax
+validation specifically when `ir.abstained`. **Live-verified 5/5** on
+the exact case that originally exposed the bug (a bare "known IoC"
+reference with zero concrete values): every trial now produces
+`abstained=True`, zero stages, and the compiler's refusal — confirmed
+it never fires on arbitrary input. A new permanent regression anchor,
+`test_total_abstention_never_fires_on_anything`, was added — confirmed
+stable across 4 consecutive runs. Full regression gate: 7/7 anchors
+green (was 6).
+
+### The abstention story, re-validated, not just patched
+
+Re-ran the three RAG A/B held-out cases that had scored "3/3, honest
+abstention, correct" under the OLD silent-empty-pipeline shape
+(`e2559891`, `6a4dbcf8`, `67775878`) through the fixed system. **All
+three now correctly produce `abstained=True` and are confirmed to fire
+on nothing**, where before they would have silently fired on
+everything if deployed. The Logic Correctness scores themselves are
+NOT retracted — these cases correctly identified the right table and
+invented nothing, which is what the rubric's 3rd criterion measures —
+but the deployment-safety property the project had been implicitly
+assuming alongside that score is now actually true instead of merely
+unexamined. This is the honest correction: the SCORES were right, the
+unstated ASSUMPTION behind them was not, and now it is.
+
+### Logic Correctness re-reported in its reliable ordinal form
+
+Per the finding that κ=0.265 (binary pass/fail) is markedly weaker
+than κ=0.645 (ordinal) on the identical 36 scores — the pass/fail LINE
+is where the raters diverge, not the underlying quality judgment —
+the held-out base-condition scores are re-reported as a distribution
+instead of a single cutoff percentage:
+
+| Score | Rater 1 | Rater 2 |
+|---|---|---|
+| 3/3 | 50.0% (9/18) | 77.8% (14/18) |
+| 2/3 | 22.2% (4/18) | 16.7% (3/18) |
+| 1/3 | 22.2% (4/18) | 0.0% (0/18) |
+| 0/3 | 5.6% (1/18) | 5.6% (1/18) |
+| **Median** | **2.5/3** | **3.0/3** |
+| **Mean** | **2.17/3 (72.2%)** | **2.67/3 (88.9%)** |
+
+This is now this project's standard Logic Correctness reporting
+format going forward — replacing the single binary percentage
+("82.4% pass") that every prior round used, which inherits the
+unreliable κ=0.265 cutoff instability this distribution does not.
+Both raters agree the 0/3 case is the same single case (`83e70a34`,
+the structurally-unsupported top-1M-exclusion pattern) — full
+agreement at the extremes, with the spread concentrated in the
+middle of the scale, exactly where a binary cutoff is most sensitive
+to which side of the line a 2-vs-3 judgment call lands on.
+
+### The RAG decision: a pre-committed threshold, not another slice
+
+Per the explicit request to define a stopping rule before spending
+more measurement on RAG rather than relitigating the same wash: **the
+threshold is that RAG-on-by-default would need to move Logic
+Correctness by more than this project's own measured binary-cutoff
+noise band (κ=0.265, meaning a large fraction of individual case
+judgments are rater-dependent at the pass/fail line)**. §4AC's A/B
+already measured an effect (45-39 vs 48-45 depending on rater) smaller
+than that noise band in both directions. **This is not an inconclusive
+result — it is a conclusion: RAG's Logic Correctness effect, at this
+sample size and with this rubric, is provably smaller than the metric's
+own measurement noise.** The decision: RAG stays off by default; the
+ASIM-schema retrieval index (independently measured 3/3 correct,
+kept for its own merit) stays; construct-syntax retrieval stays
+removed (§4AD); a larger frozen slice is only worth running if a
+future change (semantic embeddings instead of TF-IDF, or a
+substantially larger n that could move the binary cutoff outside its
+own noise band) is specifically what's being tested — not as a repeat
+of the same measurement hoping for a clearer signal.
+
+### Outstanding: the human rater
+
+A tool was built (`eval/score_logic_correctness.py`) to make this cheap
+to actually do: presents each held-out case's NL, ground-truth KQL, and
+generated KQL one at a time, collects a 0-3 score, and computes a third
+Cohen's κ against both existing AI raters once run. **This requires an
+actual human** — neither rater so far has been one, and that remains
+the ceiling on this entire Logic Correctness story exactly as named.
+Not run this round; see `eval/score_logic_correctness.py`'s own
+instructions to run it.
+
+---
+
+## 4AF. A clarification loop, built on the gap-checker the abstention
+     mechanism already implied, live-verified end to end
+
+Direct response to the explicit critique that the system should ask
+about under-specified input rather than guess or silently abstain —
+defeating the §4C "missing information, not a style problem" wall the
+only way actually possible: by asking, not by re-engineering NL
+understanding.
+
+**Correction to the request's own status assumptions, stated up
+front**: several Tier-2/4 items in that message were already done
+earlier this session — `RESULTS_DRAFT.md` is fully current (not
+"§4J flat-IR with a staleness banner"); the synthetic-vs-real gap is
+already assembled into one sentence (RESULTS_DRAFT.md §5); the
+limitations section already states the sdelete floor, the κ=0.265
+binary-cutoff instability, and the abstention boundary; the alias-
+implies-filter class is already built out via the v3 allowlist
+(`failed`, `external`, `admin`, `nxdomain`, and ~35 other curated
+terms) plus the "any filter upstream at all" structural check; the
+shelved RAG construct-index code is already removed, not just
+status-noted; the regression-gate policy fix (3/5 threshold) is
+already shipped. Re-verified against actual code/docs before writing
+this, not asserted from memory.
+
+### Architecture: gap-checker first, clarification as a thin layer on top — exactly as scoped
+
+`src/clarification/gap_checker.py`: `find_gaps(ir) -> List[Gap]` walks
+`KqlPipeline.caveats` (recursing through any join's `right_pipeline`,
+mirroring the compiler's own `_collect_caveats`) and turns each into a
+structured `Gap` (caveat text, a generated question, a real-data
+default where one exists, the affected field, a `kind` classification).
+**Why this sits on `caveats`, not a fresh NL-level analysis**: the IR
+Builder already detects "missing" at the only point where it's
+concrete and typed; re-deriving it from the NL would duplicate that
+work and risk disagreeing with the model's own account of what it
+omitted. **Why no separate frequency x logic-impact filter is needed
+here**: that filtering already happened upstream, at the point the IR
+Builder decided whether a given omission was worth a caveat at all —
+cosmetic decisions never get one.
+
+Three `kind`s, classified by keyword match on the caveat text:
+`missing_time_window`, `missing_threshold`, `missing_value` (the
+generic case, with the affected field extracted via a small regex
+when the caveat names one). **The time-window default is computed
+from real data, not invented**: scanning `data/processed/pairs_verified.jsonl`'s
+66 train-split ground-truth queries for `bin(TimeGenerated, X)` bucket
+widths gives a real frequency table (1h: 9, 5m: 5, 1m: 3, 15m: 2, 1d: 2,
+others: 1 each) — 1 hour, the most common real value, is the offered
+default. Threshold gaps deliberately get NO auto-default (no sensible
+single number generalizes across event types and aggregation
+functions); the user is asked directly.
+
+`src/clarification/clarify.py`: `resolve_clarification(...)` merges
+answers back by reusing the EXISTING repair-loop plumbing
+(`_build_ir` with a `CLARIFICATION_ANSWERS_PROVIDED` structured
+message, the same mechanism every ordinary validation-error repair
+already uses) rather than hand-writing AST mutation code. This was a
+deliberate engineering choice, not a shortcut: a hand-written mutator
+needs separate, bespoke logic for every gap shape (add a WhereStage
+filter vs. set `time_window` vs. un-abstain a totally-abstained
+pipeline and build a real one from scratch); routing through one more
+LLM-mediated rebuild reuses logic this project has already hardened
+over ~30 rounds and handles new gap shapes for free.
+
+### Live-verified, not just unit-tested
+
+Two new permanent integration tests, `tests/integration/test_clarification_loop.py`
+(its own file, not added to `test_live_e2e_execution_validation.py`,
+since that file's own docstring scopes it to one anchor per
+historically-fixed bug — this is a fresh capability, not a bug fix):
+
+1. **Total abstention -> real firing pipeline.** The maximally under-
+   specified "known IoC" NL (the same one `test_total_abstention_never_fires_on_anything`
+   uses to trigger abstention) — answering the gap-checker's one
+   question with concrete IP values produces `abstained=False` and a
+   real `imWebSession | where SrcIpAddr in (...)` pipeline that
+   correctly fires on a listed IP and correctly does not fire on an
+   unrelated one. **6/6 clean across 3 repeated runs.**
+2. **A different gap kind generalizes.** A watchlist-driven port-
+   threshold case (`missing_threshold`, no default offered) —
+   answering "500" produces `... | where ConnectionCount > 500`,
+   confirming the classifier and resolver both generalize beyond the
+   one case they were built against, not just pattern-matched to it.
+
+Both tests pass on a fresh, unmodified codebase with no special-casing
+for either NL — the gap-checker found the real caveat each model run
+actually wrote, and the resolver's rebuild produced a real, correctly-
+scoped filter each time.
+
+### Wired into the Streamlit demo, not left as a backend-only capability
+
+`app.py` now renders the clarification questions (pre-filled with any
+real-data default) as a form beneath the System B result whenever
+`find_gaps()` finds anything, with a "Resolve" button that calls
+`resolve_clarification` and shows the updated query plus any still-
+unanswered questions. Verified: imports resolve cleanly, the module
+parses, the session-state wiring across Streamlit's rerun-on-submit
+model is structurally correct. **Not interactively browser-tested this
+round** (the underlying `find_gaps`/`resolve_clarification` logic is
+the part actually live-verified, via the pytest integration tests
+above) — stated plainly rather than implied.
+
+### Scope, stated honestly — what this does NOT do
+
+Per the gap-checker's own module docstring: this finds **missing**
+gaps (a concrete value that isn't groundable at all — the `caveats`
+mechanism's entire reason for existing). It does **not** find
+**ambiguous** gaps (multiple valid readings of information that IS
+present — the §4Q stdev-vs-baseline fork, or count-vs-distinct_count
+for "DGA query volume"). Closed-option disambiguation for that second
+case needs the model to recognize and report multiple candidate
+readings, which neither `caveats` nor this checker do yet. Scoped out
+deliberately this round, not silently assumed solved — the missing-
+information case is both the more common one (every abstention this
+project has ever measured is a missing-information case, not an
+ambiguous-reading one) and the one the existing `caveats` mechanism
+already detects for free, which is why it came first.
+
+One clarification round only, by explicit design: the resolver is
+called once with whatever answers are given; anything still
+unresolved afterward is reported back as remaining gaps for the
+caller to decide on, not looped into a second automatic round.
+
+---
+
+## 4AG. The real-data before/after measurement, and an honest negative
+     result on closed-option disambiguation
+
+Direct continuation of §4AF: clarification was built but its value was
+untested at scale. This round measures it on real data and builds the
+disambiguation half §4AF scoped out.
+
+### Phase A: 50 fresh real cases, complexity-stratified, clarification OFF — fully automated, no human needed
+
+`src/data/pull_clarification_eval_set.py` pulled from the 93 fresh,
+never-tuned-against ASIM-normalized candidates already sitting locally
+(`detections_raw.jsonl`/`solutions_raw.jsonl`/`hunting_raw.jsonl` —
+confirmed via web search that `Azure/Azure-Sentinel` is still the
+active, canonical, MIT-licensed source, so no new clone was needed),
+reusing `src/data/tag_complexity.py`'s EXISTING heuristic rather than
+inventing a new one. **A real data-quality bug was found and fixed
+before trusting the pull**: 24/93 candidates (26%) were "this query has
+been deprecated, IoCs are outdated" boilerplate — identical text across
+many rule_ids, a degenerate test case either way (a stale-IoC rule's
+"correct" behavior is arguably to abstain, testing nothing new) —
+filtered out explicitly. Final set: 50 cases (2 simple, 7 moderate, 41
+complex — the natural pool skew this project's own §2.1 finding already
+documented, not retuned toward an even split the real pool doesn't
+support), saved to `eval/clarification_eval_set.json`.
+
+`eval/run_clarification_eval.py` ran all 50 through the system with
+clarification OFF (the existing, already-measured default path) and
+measured:
+
+| | |
+|---|---|
+| Completion | 98.0% (49/50) |
+| SVR / FVR (non-abstained completions only) | **100% / 100%** |
+| Total abstention rate | **60.0%** (30/50) |
+| Under-specification rate (>=1 gap found) | **80.0%** (40/50) |
+| Gap-checker questions generated | 55 |
+
+**A measurement bug was found and fixed before trusting the headline
+SVR/FVR**: the first pass scored SVR at 38.8% by running syntax
+validation over EVERY completion's KQL, including abstained ones —
+but an abstained pipeline's `// ABSTAINED ...` comment is intentionally
+not valid KQL (§4AE's whole point). Restricted to the 19 non-abstained
+completions: **SVR and FVR are both 100%**, consistent with this
+project's entire history — the deterministic compiler does not
+silently degrade on fresh real input. The corrected, real headline is
+the **80% under-specification rate**, not a depressed syntax number.
+
+**This is the single most important number this round produced**: on
+fresh, real, never-tuned-against Azure-Sentinel detection rule
+descriptions, **4 out of 5 genuinely lack enough concrete information
+to build the exact intended detection without either inventing values
+or asking** — confirming, at real scale for the first time, the §4C
+finding that started this entire abstention/clarification line of
+work ("the `sop`/`original` gap is missing information, not a style
+problem"). This was previously a documented but small-sample
+observation; it is now a measured, citable property of this dataset.
+
+**A cheap automatic false-positive pre-screen** (does the NL already
+contain a number, for threshold/time-window gaps specifically — not a
+substitute for the human precision read item 3 below still owes, but
+needs no answers at all) flagged 3/55 questions (5.5%). Inspecting
+those 3 by hand: all three are the pre-screen's OWN false positive
+(matching a digit inside an actor name like "Dev-0322" or a CVE-style
+identifier, not a real omitted threshold) — zero confirmed bad
+questions among the 55 after this check, a reassuring if partial
+signal pending the real precision measurement.
+
+### Phase B (mechanical half): the question set is generated, answers are not — by design
+
+All 55 questions are saved in `eval/results/clarification_eval_raw.json`,
+one `human_answer: null` slot per gap. This is the explicit handoff
+point: per this project's own "missing vs. ambiguous" framing, answers
+must come from a human (the user, or a separate rater) — answering from
+this project's own ground truth would leak the test. Re-run
+`eval/run_clarification_eval.py --resolve` after filling in answers to
+complete Phase C's automatable half (the resolution-rate measurement —
+does answering actually fix the query — still needs the answers to
+exist first).
+
+### Closed-option disambiguation: built, schema-sound, and an honest negative result on auto-detection
+
+Per the explicit scoping request, built the second half of "the input
+doesn't fully determine the query": `Ambiguity` (description, >=2
+`options`, `picked_option`) added to `KqlPipeline`; `find_ambiguities`/
+`resolve_ambiguity` added to `src/clarification/`, sharing the same
+rebuild plumbing as `resolve_clarification` via a new
+`_rebuild_with_instruction` helper. Prompt guidance added with this
+project's own two documented real ambiguous cases as worked examples
+(recycle-bin ProcessEvent-vs-FileEvent, §4T; DGA count-vs-dcount,
+§4N) — the two clearest, cleanly-two-option forks already in this
+project's history; the murkier §4Q stdev-vs-join case was not used as
+a worked example since it was characterized as a verifier false-
+positive pattern, not a clean structural fork.
+
+**Live-verified, with a real negative finding**: run on its own two
+documented worked-example NLs, 3 trials each, BEFORE shipping —
+**0/6 populated `ambiguities`, even on the exact cases the worked
+examples were written about.** Strengthened the prompt with an
+explicit, mandatory pre-finalization self-check ("could a different,
+equally reasonable analyst land on a different reading, with no
+further detail to break the tie?") and re-ran — **still 0/6.** This is
+reported as a genuine, measured negative result, not silently
+papered over: **the schema and resolution mechanism are sound** (4/4
+unit tests pass on manually-constructed `Ambiguity` objects, including
+join recursion and the `min_length=2` constraint; `resolve_ambiguity`
+live-verified 3/3 correctly switching `source_table` and rebuilding a
+valid pipeline once an ambiguity IS supplied) — **the open problem is
+specifically getting the model to self-trigger detection**, not the
+infrastructure around it. Plausible mechanism, not yet tested: every
+other instruction in this prompt reinforces decisive, single-
+interpretation construction; asking the SAME generative call to also
+actively monitor itself for forks it's busy resolving may need a
+structurally different approach (e.g. a dedicated second call whose
+only job is ambiguity-scanning) rather than one more bullet point in
+an already-long instruction list. Next step, not done this round.
+
+**A real, separate bug was found and fixed while live-testing the
+resolver**: `resolve_ambiguity`/`resolve_clarification` originally
+called the IR Builder exactly once with no repair attempt, unlike the
+normal pipeline's up-to-3-attempt loop — found live when un-abstaining
+the recycle-bin case into `ProcessEvent` produced an ordinary
+`FIELD_NOT_FOUND` (`ProcessPath` instead of `Process`) that the
+NORMAL repair loop would have simply self-corrected, but the bare
+single-shot rebuild had no chance to. Fixed with a small bounded retry
+(`_MAX_REBUILD_ATTEMPTS = 2`) inside `_rebuild_with_instruction` —
+there's no principled reason a clarification rebuild should be more
+fragile than an ordinary build just because it's one call instead of
+the full loop. Re-verified 3/3 clean after the fix.
+
+---
+
+## 4AH. The dedicated ambiguity-scan call — §4AG's negative result
+     closed, with the exact mechanism it predicted
+
+§4AG ended with a measured negative result (0/6 self-report auto-
+trigger, even on the IR Builder's own worked-example NLs, even after a
+second round of prompt strengthening) and a named, untested hypothesis:
+the IR Builder's prompt trains decisive single-interpretation
+construction so thoroughly that asking the SAME call to monitor itself
+for forks is structurally self-defeating — a dedicated second call
+whose ONLY job is ambiguity-scanning might work where one more bullet
+point could not. This round built and measured that call.
+
+### `AmbiguityScanAgent` — post-build, additive-only, fails to "empty"
+
+`src/agents/ambiguity_scan_agent.py` — runs AFTER System B completes,
+given the original NL plus the committed reading (source table + the
+compiled KQL), and returns `List[Ambiguity]` (usually empty). Three
+deliberate design properties:
+
+- **It has no stake in the pipeline** — it never built anything, so
+  "a different analyst could defensibly have read this differently" is
+  a review question, not self-criticism of work it just committed to.
+- **Additive-only**: it can only ADD closed-option questions for the
+  clarification UI; it never edits the pipeline, never blocks a
+  result, and every failure mode (parse error, LLM error, unrenderable
+  IR) degrades to `[]` — exactly the pre-scanner behavior.
+- **Precision-first prompt**: the structural-fork definition (event
+  type / aggregation function / filter target — the same three §4AG
+  used), four explicit NOT-an-ambiguity classes (missing info is a
+  caveat not a fork; convention-covered choices; readings the text
+  rules out; stylistic no-ops), an explicit "empty is a successful
+  scan" calibration line, and both §4AG worked examples plus two
+  worked NON-examples.
+
+`scan_ambiguities(nl, ir, scanner)` in `gap_checker.py` merges the
+scanner's findings with any self-reported `ir.ambiguities` (kept — a
+free signal if the model ever does self-report), deduped on normalized
+description text, self-report winning duplicates. This is the
+"structural detection pass" slot `find_ambiguities`' docstring
+reserved in §4AG.
+
+### Live measurement — same protocol as the §4AG baseline, for comparability
+
+Same two documented ambiguous NLs (recycle-bin event-type fork, DGA
+count-vs-dcount fork), 3 scan trials each, plus a false-positive check
+(3 clearly single-reading NLs × 2 trials):
+
+| | self-report (§4AG) | dedicated scan (this round) |
+|---|---|---|
+| Fork detection (2 ambiguous NLs, 3 trials each) | **0/6** | **6/6** |
+| False positives (3 single-reading NLs, 2 trials each) | n/a | **0/6** |
+| `picked_option` correctly matches the committed reading | n/a | 6/6 |
+| resolve_ambiguity round-trip on a scanner-found fork | n/a | ✅ FileEvent → ProcessEvent, valid compiled KQL |
+
+**It took one honest iteration to get there, and the miss was
+instructive**: the first prompt version scored 3/6 — the event-type
+fork 3/3, the aggregation fork 0/3. Tracing the DGA miss: the built
+pipeline had committed to `dcount(DnsQuery)` (the smarter, DGA-
+specific reading) while the description's own words say "NXDomain
+response *count*" (the literal raw-volume reading) — and the scanner
+was silently accepting the smarter reading as settled, exactly the
+disclosure failure the scan exists to catch. Fixed with one targeted
+instruction ("the committed reading being arguably better resolves the
+fork in the analyst's head, not in the text — report it", explicitly
+covering aggregations living inside `make-series`, not just
+`summarize`). Re-measured: 6/6, negatives still 0/6.
+
+**Honest scope**: this measurement is against this project's own two
+documented forks and three of its own demo NLs — the right baseline
+for comparability with §4AG's 0/6, but not yet a fresh-data precision/
+recall number (no labeled ambiguity corpus exists to run one against;
+the §4AG real-data set's 55 questions are missing-info gaps, a
+different class). The mechanism is confirmed; its fresh-data hit rate
+is not yet measured.
+
+### Wiring, tests, and a small resolver fix
+
+- **Streamlit demo** (`app.py`): scan runs once at generation time
+  (not in the form section, which reruns per widget interaction);
+  each fork renders as a closed-option radio in the same clarification
+  form, committed reading preselected (submitting unchanged = explicit
+  confirmation, no rebuild). A changed choice routes through
+  `resolve_ambiguity` first, then any gap answers through
+  `resolve_clarification` on the resulting IR. ON by default
+  (`USE_AMBIGUITY_SCAN=0` to disable) — unlike RAG (off after
+  measuring a wash, §4AE), this measured a clean win.
+- **Tests**: 3 new unit tests on the merge/dedupe (`test_ambiguity.py`,
+  now 7), and 2 new live anchors in `test_clarification_loop.py` —
+  the recycle-bin fork must be found AND resolving to the other option
+  must actually switch tables, and the fully-specified password-spray
+  NL must scan clean (the precision guard). Both pass live.
+- **Resolver fix found in review**: `_rebuild_with_instruction`
+  hardcoded `attempts_used=1` even when its bounded retry used 2 —
+  now reports the real count.
+- A live-verification pitfall worth recording: a scratchpad script
+  calling bare `load_dotenv()` silently found no `.env` (dotenv
+  searches from the SCRIPT's directory), fell back to
+  `LLM_PROVIDER=ollama`/qwen3.5:4b, and every pipeline build failed
+  with degenerate 4B-model output — initially indistinguishable from
+  a real regression. Any out-of-repo runner must pass the .env path
+  explicitly.
+
+None of the three regression-gated files were touched this round.
+
+---
+
 ## 5. What you have to do (irreducibly human) — narrowed, not eliminated
 
 **Rewritten in §4AC** — this section had not been touched since roughly
@@ -4912,6 +5382,7 @@ is current. This is the actual state as of §4AC.
 | Schema Validator | ✅ 15+ hard-error checks, exhaustively inventoried by `tests/unit/test_validator_inventory.py` so a check silently vanishing (the original §4K failure mode) fails CI immediately. Newest: `LITERAL_MATCHES_SCHEMA_FIELD` (§4AB) — generalizes the `field_ref` fix into a standing guard against the model reverting to the old broken literal-as-column-name pattern |
 | Repair loop / compiler / interpreter | ✅ Stable; `src/execution/ir_interpreter.py` (§4Y) provides execution-validated should-fire/should-not-fire checking independent of manual KQL reading |
 | Construct coverage | ✅ 72.7% of constructs at ≥5 real-corpus occurrences are Supported/Partial (§4AB headline), up from 59.4% at first measurement (§4X) — `CONSTRUCT_COVERAGE.md` is the living scorecard |
+| Clarification + disambiguation | ✅ Missing-info gaps: `find_gaps`/`resolve_clarification` (§4AF), live-verified. Ambiguous-reading forks: dedicated `AmbiguityScanAgent` post-build scan (§4AH) — 6/6 detection on the documented fork cases vs. the 0/6 self-report baseline, 0/6 false positives, resolution round-trip live-verified. Fresh-data precision/recall not yet measured (no labeled ambiguity corpus) |
 | RAG retrieval | ✅ Built (§4AB): 3 routed local TF-IDF indexes (KQL operator docs, ASIM schema, train-split worked examples), wired behind `USE_RAG_RETRIEVAL`, off by default. **Logic Correctness effect: NOT established either way** (§4AC) — two independent raters disagree on aggregate direction at n=18 despite substantial item-level agreement (quadratic-weighted κ=0.70). One robust, attributable regression found and named (retrieved-schema field anchoring, `dedb8fb9`); two robust wins traced to a RAG-independent IR Builder bug, now fixed regardless of RAG |
 | Logic Correctness scoring | ⚠️ Tuned-set peak 87.2% (N=1, §4S); held-out median 82.4%, IQR 5.9 (N=5 replicated, §4V) — both still single-AI-rater. **First independent second-rater check now done** (§4AC, RAG A/B set, 18 cases): quadratic-weighted κ=0.70 (substantial item-level agreement), but the two raters disagreed on which of two conditions scored higher in aggregate — the headline finding is that a single-rater directional claim at this sample size is not yet safe to publish, not a pass/fail on the rubric itself |
 | The `5b6ae038` sdelete renamed-binary-evasion case | ⚠️ → 🔍 No longer "untraced" (§4AC): the `.exe`-suffix-truncation mechanism is found and fixed (10/10 clean after); a SEPARATE mechanism remains (the IR Builder ignoring the Extraction Agent's own correctly-extracted flags 1/5 times, inventing `-p`) and is now understood to be a raw model-reliability residual the prompt already explicitly warns against — not a prompting gap, the first time this distinction has been confirmed rather than assumed for this case |

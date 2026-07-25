@@ -1,0 +1,35 @@
+---
+title: Abstention · Clarification · Disambiguation
+---
+flowchart TD
+  A["Built KqlPipeline"] --> Q{"How much can be grounded<br/>from the description?"}
+  Q -- "nothing groundable" --> ABS["abstained = True<br/>compiler emits no query ·<br/>pipeline_fires() = False"]
+  Q -- "some filters omitted" --> CAV["caveats[] · partial abstention"]
+  Q -- "fully grounded" --> OK["Runnable KQL"]
+
+  ABS --> GAP["find_gaps() → Gap[]"]
+  CAV --> GAP
+  GAP --> CQ["Open questions<br/>missing info + real-data defaults"]
+  CQ --> RC["resolve_clarification()<br/>merge answers → rebuild"]
+
+  A --> SCAN["Ambiguity-Scan Agent<br/>scan_ambiguities()"]
+  OK --> SCAN
+  SCAN --> AMB{"Genuine structural fork?"}
+  AMB -- "yes" --> CC["Closed-option question<br/>2+ readings · committed one preselected"]
+  CC --> RA["resolve_ambiguity()<br/>rebuild on chosen option"]
+  AMB -- "no (common case)" --> NONE["No disambiguation needed"]
+
+  RC --> REBUILD["Re-validated pipeline"]
+  RA --> REBUILD
+
+  classDef llm fill:#dbe9ff,stroke:#3b82c4,color:#12243a;
+  classDef det fill:#d9f2e3,stroke:#2e9e6b,color:#0f2e20;
+  classDef dec fill:#fdeecb,stroke:#d19a2a,color:#3a2c0a;
+  classDef out fill:#e7dbf7,stroke:#7c4fc0,color:#25123f;
+  classDef stop fill:#fadbdb,stroke:#c0453b,color:#3f1310;
+
+  class SCAN llm;
+  class GAP,RC,RA det;
+  class Q,AMB dec;
+  class A,OK,CQ,CC,REBUILD,NONE,CAV out;
+  class ABS stop;

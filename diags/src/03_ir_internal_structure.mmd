@@ -1,0 +1,32 @@
+---
+title: Intermediate Representation — KqlPipeline AST
+---
+flowchart TD
+  A["KqlPipeline (AST root)"]
+  A --> ST["source_table<br/>1 of 7 ASIM event types"]
+  A --> STG["stages[] · ordered pipeline"]
+  A --> CV["caveats[]<br/>self-disclosed omissions"]
+  A --> AB["abstained: bool<br/>refuse-to-emit flag"]
+  A --> AM["ambiguities[]<br/>structural forks"]
+
+  STG --> S1["WhereStage"]
+  STG --> S2["SummarizeStage"]
+  STG --> S3["ExtendStage"]
+  STG --> S4["JoinStage"]
+  STG --> S5["UnionStage · ProjectStage"]
+  STG --> S6["TopStage · MvExpandStage"]
+  STG --> S7["MakeSeriesStage · SeriesAnomalyStage"]
+  STG --> S8["ParseStage"]
+
+  S1 --> F["Filter / FilterGroup / AndGroup<br/>field · operator · value | field_ref"]
+  S2 --> AG["Aggregation(s) · group_by ·<br/>time_window · arg_max / arg_min"]
+
+  classDef root fill:#e7dbf7,stroke:#7c4fc0,color:#25123f;
+  classDef top fill:#dbe9ff,stroke:#3b82c4,color:#12243a;
+  classDef stage fill:#d9f2e3,stroke:#2e9e6b,color:#0f2e20;
+  classDef leaf fill:#eef1f4,stroke:#8b98a9,color:#1a2230;
+
+  class A root;
+  class ST,STG,CV,AB,AM top;
+  class S1,S2,S3,S4,S5,S6,S7,S8 stage;
+  class F,AG leaf;

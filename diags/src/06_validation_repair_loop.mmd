@@ -1,0 +1,27 @@
+---
+title: Validation & Bounded Repair Loop
+---
+flowchart TD
+  A["IR attempt (from IR Builder)"] --> B["Schema Validator · 22 checks"]
+  B --> C{"Valid?"}
+  C -- "yes" --> I["Constraint-traceability check<br/>threshold number matches the NL"]
+  I --> J["Compile → syntax validate"]
+  J --> DONE["Validated KQL"]
+  C -- "no" --> D{"attempt &lt; 3?"}
+  D -- "no" --> Z["Abstain<br/>MAX_REPAIR_ATTEMPTS_EXCEEDED"]
+  D -- "yes" --> E["Repair prompt<br/>structured error + previous IR +<br/>compiled-KQL preview"]
+  E --> F{"identical output<br/>to last attempt?"}
+  F -- "yes" --> G["Escalate temperature<br/>0 → 0.3 → 0.7"]
+  F -- "no" --> H["Re-build IR"]
+  G --> H
+  H --> A
+
+  classDef det fill:#d9f2e3,stroke:#2e9e6b,color:#0f2e20;
+  classDef dec fill:#fdeecb,stroke:#d19a2a,color:#3a2c0a;
+  classDef out fill:#e7dbf7,stroke:#7c4fc0,color:#25123f;
+  classDef stop fill:#fadbdb,stroke:#c0453b,color:#3f1310;
+
+  class B,I,J,E,G,H det;
+  class C,D,F dec;
+  class A,DONE out;
+  class Z stop;

@@ -1,0 +1,23 @@
+---
+title: NL → IR → KQL Transformation Flow
+---
+flowchart LR
+  A["Natural-language SOP"] --> B["Semantic parsing<br/>Extraction Agent"]
+  B --> C["Structured signal<br/>event type · entities · thresholds · time"]
+  C --> D["AST construction<br/>IR Builder Agent"]
+  D --> E["Security IR<br/>(KqlPipeline)"]
+  E --> F["Deterministic compile<br/>+ schema &amp; syntax validation"]
+  F --> G["Executable ASIM / KQL rule"]
+  G -. "out of scope (KQL/ASIM-only build)" .-> H["Sigma / SPL translation<br/>(not implemented)"]
+
+  classDef llm fill:#dbe9ff,stroke:#3b82c4,color:#12243a;
+  classDef det fill:#d9f2e3,stroke:#2e9e6b,color:#0f2e20;
+  classDef data fill:#eef1f4,stroke:#8b98a9,color:#1a2230;
+  classDef out fill:#e7dbf7,stroke:#7c4fc0,color:#25123f;
+  classDef future fill:#f4f4f4,stroke:#b8b8b8,color:#7a7a7a,stroke-dasharray:5 4;
+
+  class B,D llm;
+  class F det;
+  class A,C,E data;
+  class G out;
+  class H future;

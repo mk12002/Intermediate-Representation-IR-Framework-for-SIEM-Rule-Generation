@@ -20,6 +20,7 @@ from src.agents.extraction_agent import ExtractionAgent
 from src.agents.ir_builder_agent import IRBuilderAgent
 from src.baseline.few_shot_examples import FEW_SHOT_EXAMPLE_1, FEW_SHOT_EXAMPLE_2
 from src.baseline.run import BaselineRunner
+from src.clarification import find_gaps, resolve_ambiguity, resolve_clarification, scan_ambiguities
 from src.pipeline.system_b import run_system_b
 
 DATA_DIR = Path(__file__).parent / "data"
@@ -58,6 +59,12 @@ def load_schema() -> dict:
 @st.cache_resource
 def load_agents():
     return ExtractionAgent(), IRBuilderAgent(), BaselineRunner()
+
+
+@st.cache_resource
+def load_scanner():
+    from src.agents.ambiguity_scan_agent import AmbiguityScanAgent
+    return AmbiguityScanAgent()
 
 
 def resolve_field_list(likely_event_type: str, asim_schema: dict) -> list[str]:
@@ -147,6 +154,95 @@ if st.button("Generate", type="primary", disabled=not nl_description.strip()):
         if extraction is not None:
             with st.expander("Extraction Agent output"):
                 st.json(json.loads(extraction.model_dump_json(exclude_none=True)))
+
+    # Persisted across reruns so the clarification form below survives
+    # the "Resolve" button's own rerun (PROJECT_STATUS.md §4AF).
+    st.session_state["result_b"] = result_b
+    st.session_state["extraction"] = extraction
+    st.session_state["nl_description"] = nl_description
+    st.session_state.pop("clarified", None)  # a fresh Generate click invalidates any prior clarification
+
+    # §4AH — dedicated post-build ambiguity scan (one extra LLM call per
+    # Generate). ON by default in this demo — unlike RAG (off by default
+    # after measuring a wash, §4AE), the scanner measured a clean win:
+    # 6/6 fork detection on the two documented ambiguous cases vs. the
+    # 0/6 self-report baseline, with 0/6 false positives on
+    # single-reading NLs. Set USE_AMBIGUITY_SCAN=0 to disable. Scanned
+    # once here at generation time (not in the form section below, which
+    # reruns on every widget interaction) and persisted alongside the
+    # result it describes.
+    ambiguities = []
+    if result_b is not None and result_b.success and os.getenv("USE_AMBIGUITY_SCAN", "1") == "1":
+        with st.spinner("Scanning for genuinely ambiguous readings..."):
+            ambiguities = scan_ambiguities(nl_description, result_b.ir, load_scanner())
+    st.session_state["ambiguities"] = ambiguities
+
+# --- Clarification (§4AF): ask about load-bearing gaps instead of silently abstaining ---
+result_b = st.session_state.get("result_b")
+extraction = st.session_state.get("extraction")
+if result_b is not None and result_b.success and extraction is not None:
+    gaps = find_gaps(result_b.ir)
+    ambiguities = st.session_state.get("ambiguities") or []
+    if gaps or ambiguities:
+        st.divider()
+        st.subheader("⚠️ This query needs clarification before it's safe to deploy")
+        st.caption(
+            f"{'The detection abstained entirely' if result_b.ir.abstained else 'Part of this detection needs input'} "
+            "— missing information becomes an open question, and a genuinely "
+            "ambiguous reading becomes a closed choice. Answers are merged "
+            "directly into the IR, not re-appended to the original text."
+        )
+        with st.form("clarification_form"):
+            answers = {}
+            for i, gap in enumerate(gaps):
+                default = gap.default or ""
+                answers[gap.caveat_text] = st.text_input(gap.question, value=default, key=f"gap_{i}")
+            choices = {}
+            for i, amb in enumerate(ambiguities):
+                # The committed reading is preselected — submitting
+                # without changing anything is an explicit confirmation,
+                # not a rebuild trigger.
+                default_index = amb.options.index(amb.picked_option) if amb.picked_option in amb.options else 0
+                choices[amb.description] = st.radio(
+                    f"Ambiguous reading: {amb.description}", amb.options,
+                    index=default_index, key=f"amb_{i}",
+                )
+            submitted = st.form_submit_button("Resolve")
+        if submitted:
+            real_answers = {k: v for k, v in answers.items() if v.strip()}
+            changed_choices = {
+                d: c for d, c in choices.items()
+                if c != next((a.picked_option for a in ambiguities if a.description == d), c)
+            }
+            base_ir = result_b.ir
+            clarified = None
+            with st.spinner("Rebuilding with your answers..."):
+                if changed_choices:
+                    clarified = resolve_ambiguity(
+                        extraction, base_ir, ambiguities, changed_choices, load_agents()[1], load_schema(),
+                    )
+                    if clarified.success:
+                        base_ir = clarified.ir
+                if real_answers:
+                    clarified = resolve_clarification(
+                        extraction, base_ir, gaps, real_answers, load_agents()[1], load_schema(),
+                    )
+            if clarified is not None:
+                st.session_state["clarified"] = clarified
+
+    clarified = st.session_state.get("clarified")
+    if clarified is not None:
+        st.subheader("Result after clarification")
+        if clarified.success:
+            st.success("Resolved" + (" — still abstained, see remaining questions below" if clarified.ir.abstained else ""))
+            st.code(clarified.kql, language="sql")
+            remaining = find_gaps(clarified.ir)
+            if remaining:
+                st.warning(f"{len(remaining)} question(s) still unanswered:")
+                for g in remaining:
+                    st.write(f"- {g.question}")
+        else:
+            st.error(f"Could not resolve — {clarified.reason}")
 
 st.divider()
 st.caption(

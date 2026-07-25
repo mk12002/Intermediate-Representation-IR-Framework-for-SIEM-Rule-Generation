@@ -543,7 +543,17 @@ def _apply_series_anomaly(df: pd.DataFrame, stage) -> pd.DataFrame:
 def run_pipeline(pipeline: KqlPipeline, rows: List[dict]) -> pd.DataFrame:
     """Interprets a KqlPipeline against synthetic rows, returning the
     resulting DataFrame (empty if nothing matches/survives). See module
-    docstring for exactly what this does and doesn't validate."""
+    docstring for exactly what this does and doesn't validate.
+
+    §4AE: an abstained pipeline (KqlPipeline.abstained=True) has no
+    compiled, deployable query at all (generate_kql refuses to emit
+    one) — interpreting it always returns empty, matching that
+    contract exactly, regardless of what (if anything) ended up in
+    `stages`. This is what makes the should-not-fire regression anchor
+    meaningful: a real abstention must measure as firing on NOTHING,
+    not as a degenerate always-matches pipeline."""
+    if pipeline.abstained:
+        return pd.DataFrame()
     df = pd.DataFrame(rows)
     for stage in pipeline.stages:
         if df.empty and stage.type not in ("where", "summarize", "make_series"):

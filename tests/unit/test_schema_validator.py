@@ -65,7 +65,10 @@ def test_join_stage_keys_validated():
         stages=[
             JoinStage(
                 kind=JoinKind.INNER,
-                right_pipeline=KqlPipeline(source_table=ASIMEventType.DNS, stages=[]),
+                right_pipeline=KqlPipeline(
+                    source_table=ASIMEventType.DNS,
+                    stages=[WhereStage(filters=[Filter(field="DnsQuery", operator=FilterOperator.EQ, value="example.com")])],
+                ),
                 join_on=["DnsQuery"]
             )
         ]
@@ -480,7 +483,10 @@ def test_nested_join_pipeline_parses_as_a_real_object_not_a_dict():
             JoinStage(
                 kind=JoinKind.INNER,
                 join_on=["SrcIpAddr"],
-                right_pipeline=KqlPipeline(source_table=ASIMEventType.NETWORK_SESSION, stages=[]),
+                right_pipeline=KqlPipeline(
+                    source_table=ASIMEventType.NETWORK_SESSION,
+                    stages=[WhereStage(filters=[Filter(field="SrcIpAddr", operator=FilterOperator.NEQ, value="")])],
+                ),
             ),
         ],
     )
@@ -655,7 +661,29 @@ def test_unrecognized_source_table_is_a_hard_error_not_a_confusing_field_error()
 
 
 def test_recognized_source_table_passes_through_normally():
+    ir = KqlPipeline(
+        source_table=ASIMEventType.AUTHENTICATION,
+        stages=[WhereStage(filters=[Filter(field="EventResult", operator=FilterOperator.EQ, value="Failure")])],
+    )
+    result = validate_ir(ir, ASIM_SCHEMA)
+    assert result.passed
+
+
+def test_empty_pipeline_not_marked_abstained_is_a_hard_error():
+    """§4AE: an empty stages list with no explicit abstained=True is
+    ambiguous about WHY it's empty, and compiles to a bare table
+    reference that fires on every row when deployed — never allowed."""
     ir = KqlPipeline(source_table=ASIMEventType.AUTHENTICATION, stages=[])
+    result = validate_ir(ir, ASIM_SCHEMA)
+    assert not result.passed
+    assert result.error_type == "EMPTY_PIPELINE_NOT_MARKED_ABSTAINED"
+
+
+def test_empty_pipeline_explicitly_marked_abstained_passes():
+    ir = KqlPipeline(
+        source_table=ASIMEventType.AUTHENTICATION, stages=[], abstained=True,
+        caveats=["no concrete IoC values were given, so no filter could be grounded"],
+    )
     result = validate_ir(ir, ASIM_SCHEMA)
     assert result.passed
 

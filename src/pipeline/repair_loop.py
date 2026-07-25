@@ -10,7 +10,7 @@ from src.agents.ir_builder_agent import IRBuilderAgent
 from src.generator.compiler import generate_kql
 from src.ir_engine.ir_schema import ExtractionOutput, KqlPipeline
 from src.ir_engine.ir_validator import ValidationResult, validate_ir
-from src.validation.syntax_validators import validate_kql_syntax
+from src.validation.syntax_validators import ValidationResult as SyntaxValidationResult, validate_kql_syntax
 
 logger = logging.getLogger(__name__)
 
@@ -252,7 +252,15 @@ def run_with_repair(
 
         if ir_validation.passed:
             kql = generate_kql(ir)
-            syntax_validation = validate_kql_syntax(kql)
+            # §4AE: an abstained pipeline's "kql" is deliberately a
+            # comment, not a runnable query (generate_kql refuses to
+            # emit one on purpose) — running it through validate_kql_syntax
+            # would always fail ("no table reference found") and get
+            # misclassified as a TEMPLATE_BUG, since that check exists to
+            # catch the compiler accidentally emitting bad KQL for a
+            # REAL query, not to validate intentionally-non-executable
+            # abstention output.
+            syntax_validation = validate_kql_syntax(kql) if not ir.abstained else SyntaxValidationResult(passed=True)
             if not syntax_validation.passed:
                 log_template_bug(ir, kql, syntax_validation)
                 return PipelineResult(success=False, reason="TEMPLATE_BUG", ir=ir, kql=kql)

@@ -1,9 +1,24 @@
 # Master Plan — Schema-Grounded Natural Language to KQL Translation
 
+**⚠️ STALE AS OF §4AE (2026-06-30) — this document was never updated
+past its original planning-phase draft and now describes a project
+state from ~30 rounds ago** ("Status: dataset construction phase"
+below is not current — dataset construction, both architectures'
+hardening, RAG, an independent-rater check, and a severe abstention-
+safety bug found-and-fixed have all happened since). For the actual
+current state, read `PROJECT_STATUS.md` §1–§4AE (the full chronological
+record) and `RESULTS_DRAFT.md` (the current-state summary) — both are
+kept reconciled with shipped code; this document is not, and a full
+reconciliation (~1600 lines, mostly the dataset/evaluation-methodology
+sections below, which ARE still substantively accurate as *methodology*
+even though every number and architecture reference is outdated) was
+not completed this round. Treat the sections below as the original
+research plan/rationale, not a current-state reference.
+
 **A complete planning and implementation reference for an independent research project on reducing syntax and field hallucination in LLM-generated Microsoft Sentinel detection rules.**
 
 > **Author:** Mohit — B.Tech, Electronics & Computer Engineering, VIT Chennai
-> **Status:** Active — dataset construction phase
+> **Status:** Superseded — see the staleness note above. Originally "Active — dataset construction phase"; the project is now ~30 rounds past that phase across two IR architectures, with RAG retrieval, an independent-rater Logic Correctness check, and a fixed abstention-safety bug all shipped since.
 > **Document purpose:** This is the single, exhaustive reference for this project — covering motivation, architecture, dataset methodology, evaluation design, and execution planning in one continuous document. The repository's `README.md` is a shorter landing page; the `docs/` folder splits this same material into separately-navigable files for day-to-day reference. This document is the complete version, intended to be read top to bottom once and then used as a lookup reference throughout the project.
 
 ---

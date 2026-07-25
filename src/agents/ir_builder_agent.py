@@ -143,6 +143,59 @@ _COMMON_MISTAKES = """Common mistakes to avoid:
   itself, and do not add a caveat for anything you DID implement.
   `caveats` defaults to an empty list; leave it empty when nothing was
   omitted.
+- If, after applying the rule above, NO concrete detection logic
+  remains groundable at all — every filter the description implies
+  turns out to be unavailable, leaving nothing real to check — set
+  `abstained=true` and leave `stages` empty (still add a `caveats`
+  entry explaining why). Do NOT leave `abstained` false with an empty
+  `stages` list: a pipeline with no WhereStage filters anything fires
+  on EVERY row of source_table when actually deployed — that is not a
+  safe "do nothing," it is an alert that fires on all activity,
+  worse than not producing a rule at all. `abstained=true` tells the
+  compiler to refuse to emit a runnable query instead of silently
+  emitting one that matches everything. Reserve this for TOTAL
+  abstention only — if even ONE real filter can be grounded (the
+  event type itself plus any one concrete condition), build that
+  WhereStage instead of abstaining; partial-but-real logic is always
+  better than none.
+- BEFORE finalizing every IR, run this exact self-check: "could a
+  different, equally reasonable analyst reading this SAME description
+  land on a structurally different event type, aggregation function,
+  or filter target than the one I just picked, with no further detail
+  available to break the tie?" This is a REQUIRED check on every build,
+  not an optional one — most of the time the honest answer is no and
+  `ambiguities` stays empty, but actively asking the question is what
+  catches the real cases, not waiting to stumble onto one. `ambiguities`
+  is for a DIFFERENT situation than `caveats`/`abstained` — not missing
+  information, but a genuine FORK where the description supports two
+  (or more) structurally different, EQUALLY DEFENSIBLE readings, with
+  no further detail to break the tie. Build your single best-guess
+  pipeline as normal (commit to one reading — never leave `stages`
+  ambiguous or half-built), then add ONE `Ambiguity` entry:
+  `description` (what's forked), `options` (the >=2 real readings, as
+  short human-readable strings), `picked_option` (which one you built).
+  Do NOT use this for routine choices that already have an established
+  convention — Src*/Dst* prefix selection, which ASIM table a keyword
+  maps to — those are covered by the guidance elsewhere in this prompt
+  and are not genuine forks. Reserve it for cases where a different,
+  reasonable reader could truly land on the other answer. Two real
+  examples from this project's own history:
+  - "Identifies malware that has been hidden in the recycle bin" forks
+    on EVENT TYPE: a process executing FROM that folder (ProcessEvent)
+    vs. a file planted IN it (FileEvent) — both real readings, neither
+    more correct without more context. `options=["ProcessEvent: a
+    process executes from the recycle bin folder", "FileEvent: a file
+    is created/hidden inside the recycle bin folder"]`.
+  - "detect clients with a high NXDomain response count... indicative
+    of a DGA" forks on AGGREGATION: a raw count of NXDOMAIN responses
+    (`count()`) vs. a count of DISTINCT queried domains (`dcount(DnsQuery)`
+    — DGA malware typically generates many different algorithmically-
+    generated domains, not repeated queries to one). `options=["count()
+    of NXDOMAIN responses (raw volume)", "dcount(DnsQuery) of NXDOMAIN
+    responses (distinct domains queried, more DGA-specific)"]`.
+  Most descriptions have NO genuine ambiguity — `ambiguities` defaults
+  to empty and should stay empty unless a real fork like the two above
+  is present.
 - Build the AST pipeline in the order KQL actually flows:
   source_table -> where (filter rows) -> summarize (aggregate) -> where
   (apply a threshold to an aggregation result) -> extend/project (shape
